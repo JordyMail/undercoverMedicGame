@@ -1,6 +1,6 @@
-# Undercover Game
+# UndercoverMedicGame
 
-**Undercover Game** is a **multiplayer real-time browser-based game** that combines discussion, voting, elimination, and a final round challenge.
+**UndercoverMedicGame** is a **multiplayer real-time browser-based game** that combines discussion, voting, elimination, and a final round challenge.
 It runs with **Node.js (Express, Socket.IO)** on the backend and **HTML/CSS/JS** on the frontend.
 
 ---
