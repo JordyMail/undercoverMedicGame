@@ -7,6 +7,8 @@ import Lobby from "./pages/Lobby";
 import Game from "./pages/Game";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
+import OfflineGame from "./pages/OfflineGame";
+import OfflineSetup from "./pages/OfflineSetup";
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function AppContent() {
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/game" element={<Game />} />
         <Route path="/results" element={<Results />} />
+        <Route path="/offline/setup" element={<OfflineSetup />} />
+        <Route path="/offline/game" element={<OfflineGame />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </FixedGameProvider>
