@@ -42,6 +42,31 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const isInitializedRef = useRef(false);
 
+  // Helper function to update current player from room data
+  const updateCurrentPlayerFromRoom = (room: Room | null) => {
+    if (!room || !state.currentPlayer?.id) return;
+    
+    const updatedPlayer = room.players.find(p => p.id === state.currentPlayer.id);
+    if (updatedPlayer) {
+      // Cek apakah ada perubahan status eliminated
+      const wasEliminated = state.currentPlayer.isEliminated;
+      const isNowEliminated = updatedPlayer.isEliminated;
+      
+      if (wasEliminated !== isNowEliminated) {
+        console.log('🔄 Player eliminated status changed:', {
+          name: updatedPlayer.name,
+          was: wasEliminated,
+          now: isNowEliminated
+        });
+      }
+      
+      setState(prev => ({
+        ...prev,
+        currentPlayer: updatedPlayer
+      }));
+    }
+  };
+
   // Initialize socket connection
   const initializeConnection = () => {
     if (isInitializedRef.current) {
@@ -136,9 +161,34 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
     });
 
     socket.on('room-updated', (room: Room) => {
-      console.log('Room updated:', room);
-      setState(prev => ({ ...prev, room }));
-      // Save to localStorage for persistence
+      console.log('📥 ROOM UPDATED FROM SERVER:', {
+        phase: room.phase,
+        finalVotes: room.finalVotes,
+        players: room.players.map(p => ({ 
+          name: p.name, 
+          eliminated: p.isEliminated,
+          finalAnswer: !!p.finalAnswer,
+          votedFor: p.votedFor
+        }))
+      });
+      
+      setState(prev => {
+        // Update current player dari room
+        let updatedCurrentPlayer = prev.currentPlayer;
+        if (prev.currentPlayer?.id) {
+          const freshPlayer = room.players.find(p => p.id === prev.currentPlayer.id);
+          if (freshPlayer) {
+            updatedCurrentPlayer = freshPlayer;
+          }
+        }
+        
+        return {
+          ...prev,
+          room,
+          currentPlayer: updatedCurrentPlayer
+        };
+      });
+      
       localStorage.setItem('uncoverles_room', JSON.stringify(room));
     });
 
@@ -158,6 +208,18 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
     socket.on('game-updated', (room: Room) => {
       console.log('Game updated:', room);
       setState(prev => ({ ...prev, room }));
+      
+      // 🔴 PERBAIKAN: Update currentPlayer dari room data
+      if (state.currentPlayer?.id) {
+        const updatedPlayer = room.players.find(p => p.id === state.currentPlayer.id);
+        if (updatedPlayer) {
+          setState(prev => ({
+            ...prev,
+            currentPlayer: updatedPlayer
+          }));
+        }
+      }
+      
       // Save to localStorage for persistence
       localStorage.setItem('uncoverles_room', JSON.stringify(room));
     });
@@ -179,7 +241,7 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
     });
 
     socket.on('phase-changed', (phase: GamePhase) => {
-      console.log('Game phase changed to:', phase);
+      console.log('🔄 Game phase changed to:', phase);
       setState(prev => {
         const updatedRoom = prev.room ? {
           ...prev.room,
@@ -195,12 +257,28 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
     });
 
     socket.on('player-eliminated', (eliminatedPlayerId: string) => {
-      console.log('Player eliminated:', eliminatedPlayerId);
+      console.log('⚰️ Player eliminated:', eliminatedPlayerId);
+      
       setState(prev => {
         const updatedRoom = prev.room ? {
           ...prev.room,
-          eliminatedThisRound: eliminatedPlayerId
+          eliminatedThisRound: eliminatedPlayerId,
+          // 🔴 PERBAIKAN: Update eliminated status di players array
+          players: prev.room.players.map(p => 
+            p.id === eliminatedPlayerId 
+              ? { ...p, isEliminated: true }
+              : p
+          )
         } : null;
+
+        // 🔴 PERBAIKAN: Jika current player yang dieliminasi, update currentPlayer juga
+        if (prev.currentPlayer?.id === eliminatedPlayerId) {
+          console.log('⚠️ You have been eliminated!');
+          setState(prev => ({
+            ...prev,
+            currentPlayer: prev.currentPlayer ? { ...prev.currentPlayer, isEliminated: true } : null
+          }));
+        }
 
         if (updatedRoom) {
           localStorage.setItem('uncoverles_room', JSON.stringify(updatedRoom));
@@ -210,13 +288,38 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
+    socket.on('vote-recorded', (data) => {
+      console.log('✅ VOTE RECORDED BY SERVER:', data);
+    });
+
+    socket.on('final-answer-submitted', (data) => {
+      console.log('✅ Final answer confirmed by server', data);
+    });
+
     socket.on('game-ended', (results: GameResult) => {
-      console.log('Game ended:', results);
-      // Save results to localStorage for persistence
+      console.log('🏆 GAME ENDED - RECEIVED RESULTS:', results);
+      
+      // Save results
       localStorage.setItem('uncoverles_results', JSON.stringify(results));
-      // Clear room data since game is over
       localStorage.removeItem('uncoverles_room');
       localStorage.removeItem('uncoverles_player');
+      
+      if (state.currentPlayer?.id) {
+        localStorage.removeItem(`revealed_${state.currentPlayer.id}`);
+      }
+      
+      // Reset state
+      setState({
+        socket: state.socket,
+        room: null,
+        currentPlayer: null,
+        isConnected: state.isConnected,
+        error: null,
+        myRole: null,
+        myDisease: null
+      });
+      
+      // Navigate
       navigate('/results', { state: results });
     });
   };
@@ -300,11 +403,36 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
 
   const voteFinal = (targetPlayerId: string) => {
     if (!state.socket || !state.isConnected) {
+      console.error('❌ Cannot vote: Socket not connected');
       setState(prev => ({ ...prev, error: 'Not connected to server' }));
       return;
     }
 
+    console.log('🗳️ Sending vote to server:', {
+      targetId: targetPlayerId,
+      socketId: state.socket.id,
+      connected: state.isConnected
+    });
+
+    // 🔴 KIRIM VOTE
     state.socket.emit('vote-final', targetPlayerId);
+    
+    // 🔴 LANGSUNG UPDATE LOCAL STATE
+    setState(prev => ({
+      ...prev,
+      currentPlayer: prev.currentPlayer ? {
+        ...prev.currentPlayer,
+        votedFor: targetPlayerId
+      } : null
+    }));
+    
+    // 🔴 TAMBAHKAN TIMEOUT UNTUK CEK RESPON
+    setTimeout(() => {
+      if (!state.room?.finalVotes?.[state.socket?.id || '']) {
+        console.warn('⚠️ Vote may not have reached server, retrying...');
+        state.socket?.emit('vote-final', targetPlayerId);
+      }
+    }, 2000);
   };
 
   const leaveRoom = () => {
@@ -388,6 +516,36 @@ export function FixedGameProvider({ children }: { children: React.ReactNode }) {
       isInitializedRef.current = false;
     };
   }, []);
+
+  // 🔴 PERBAIKAN: Periodic check untuk memastikan currentPlayer sinkron
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (state.room && state.currentPlayer) {
+        const freshPlayerData = state.room.players.find(p => p.id === state.currentPlayer.id);
+        if (freshPlayerData) {
+          // Cek apakah ada perbedaan
+          if (freshPlayerData.isEliminated !== state.currentPlayer.isEliminated ||
+              JSON.stringify(freshPlayerData.finalAnswer) !== JSON.stringify(state.currentPlayer.finalAnswer) ||
+              freshPlayerData.votedFor !== state.currentPlayer.votedFor) {
+            
+            console.log('🔄 Syncing current player data:', {
+              name: freshPlayerData.name,
+              eliminated: freshPlayerData.isEliminated,
+              hadFinalAnswer: !!freshPlayerData.finalAnswer,
+              votedFor: freshPlayerData.votedFor
+            });
+            
+            setState(prev => ({
+              ...prev,
+              currentPlayer: freshPlayerData
+            }));
+          }
+        }
+      }
+    }, 2000); // Cek setiap 2 detik
+    
+    return () => clearInterval(interval);
+  }, [state.room, state.currentPlayer]);
 
   return (
     <GameContext.Provider value={contextValue}>
