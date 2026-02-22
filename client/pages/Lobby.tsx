@@ -1,36 +1,44 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Users, Crown, Play, Copy, Check, UserCheck, Clock } from 'lucide-react';
+import { ArrowLeft, Users, Crown, Play, Copy, Check, UserCheck, Clock, Stethoscope, ChevronDown } from 'lucide-react';
 import { useGame } from '../contexts/FixedGameContext';
-import { useState } from 'react';
+import { MEDICAL_THEMES } from '../../shared/medicalData';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 export default function LobbyPage() {
-  const { room, currentPlayer, startGame, leaveRoom, initializeConnection } = useGame();
+  const { room, currentPlayer, startGame, leaveRoom, initializeConnection, socket, isConnected } = useGame();
   const [copied, setCopied] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState(room?.selectedTheme || '');
 
-  // Ensure connection is initialized - fix dependency issue
+  // Ensure connection is initialized (only if not already connected)
   useEffect(() => {
-    let mounted = true;
-    if (mounted) {
+    if (!socket || !isConnected) {
       initializeConnection();
     }
-    return () => { mounted = false; };
-  }, []);
+  }, [socket, isConnected, initializeConnection]);
 
   useEffect(() => {
     if (!room || !currentPlayer) {
-      // Check if we have saved session data
-      const savedRoom = localStorage.getItem('uncoverles_room');
-      const savedPlayer = localStorage.getItem('uncoverles_player');
+      // Check if we have a session token
+      const sessionToken = localStorage.getItem('uncoverles_session_token');
 
-      if (!savedRoom || !savedPlayer) {
-        // No session data, redirect to play page
+      if (!sessionToken) {
+        // No session token, redirect to play page immediately
         window.location.href = '/play';
+      } else {
+        // Give socket time to restore session (3 seconds)
+        const timer = setTimeout(() => {
+          if (!room || !currentPlayer) {
+            console.log('Session restoration timed out, redirecting to play page');
+            window.location.href = '/play';
+          }
+        }, 3000);
+
+        return () => clearTimeout(timer);
       }
-      // If we have session data, the context will restore it
     }
   }, [room, currentPlayer]);
 
@@ -38,16 +46,43 @@ export default function LobbyPage() {
     return null;
   }
 
-  const canStart = room.players.length >= room.minPlayers && currentPlayer.isHost;
+  const canStart = room.players.length >= room.minPlayers && currentPlayer.isHost && selectedTheme;
   const isRoomFull = room.players.length >= room.maxPlayers;
 
+  const handleThemeSelect = (themeId: string) => {
+    if (currentPlayer.isHost && socket && isConnected) {
+      setSelectedTheme(themeId);
+      socket.emit('select-theme', themeId);
+    }
+  };
+
   const copyRoomCode = async () => {
+    // Always use fallback method to avoid permission policy issues
     try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const textArea = document.createElement('textarea');
+      textArea.value = room.code;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      if (successful) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        // If execCommand fails, show manual copy option
+        throw new Error('Copy command failed');
+      }
     } catch (err) {
       console.error('Failed to copy room code:', err);
+      // Show user feedback that copy failed with manual copy option
+      const userResponse = confirm(`Automatic copy failed. Would you like to see the room code to copy manually?\n\nRoom Code: ${room.code}\n\nClick OK to dismiss this message.`);
     }
   };
 
@@ -92,10 +127,11 @@ export default function LobbyPage() {
           )}
         </div>
 
-        <div className="max-w-4xl mx-auto grid lg:grid-cols-3 gap-8">
-          {/* Room Info */}
-          <div className="lg:col-span-1">
-            <Card className="bg-game-card border-0 shadow-lg mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Room Info and Game Status */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Room Info */}
+            <Card className="bg-game-card border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-center">Room Code</CardTitle>
               </CardHeader>
@@ -131,6 +167,7 @@ export default function LobbyPage() {
               </CardContent>
             </Card>
 
+            {/* Game Status */}
             <Card className="bg-game-card border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -159,10 +196,96 @@ export default function LobbyPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Theme Selection - Only for Host (moved to left column) */}
+            {currentPlayer.isHost && (
+              <Card className="bg-game-card border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Stethoscope className="mr-2 h-4 w-4" />
+                    Game Theme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Medical Theme:</label>
+                    <Select value={selectedTheme} onValueChange={handleThemeSelect}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose a medical theme for this game" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEDICAL_THEMES.map((theme) => (
+                          <SelectItem key={theme.id} value={theme.id}>
+                            <div>
+                              <div className="font-medium">{theme.name}</div>
+                              <div className="text-xs text-muted-foreground">{theme.description}</div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedTheme && (
+                    <div className="bg-medical-blue/10 p-3 rounded-lg">
+                      <div className="text-sm">
+                        <span className="font-medium text-medical-blue">
+                          Selected: {MEDICAL_THEMES.find(t => t.id === selectedTheme)?.name}
+                        </span>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {MEDICAL_THEMES.find(t => t.id === selectedTheme)?.diseases.length} disease pairs available
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!selectedTheme && (
+                    <div className="bg-medical-orange/10 p-3 rounded-lg">
+                      <div className="text-sm text-medical-orange font-medium">
+                        ⚠️ Please select a theme before starting the game
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Theme Display - For Non-Host Players (moved to left column) */}
+            {!currentPlayer.isHost && (
+              <Card className="bg-game-card border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Stethoscope className="mr-2 h-4 w-4" />
+                    Game Theme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedTheme ? (
+                    <div className="bg-medical-blue/10 p-3 rounded-lg">
+                      <div className="text-sm">
+                        <span className="font-medium text-medical-blue">
+                          Theme: {MEDICAL_THEMES.find(t => t.id === selectedTheme)?.name}
+                        </span>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Selected by host • {MEDICAL_THEMES.find(t => t.id === selectedTheme)?.diseases.length} disease pairs
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <div className="text-sm text-muted-foreground">
+                        ⏳ Waiting for host to select game theme...
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* Players List */}
-          <div className="lg:col-span-2">
+          {/* Right Column - Players List and Quick Rules */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Players List */}
             <Card className="bg-game-card border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -171,7 +294,7 @@ export default function LobbyPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-3 gap-4">
                   {room.players.map((player, index) => (
                     <div
                       key={player.id}
@@ -217,7 +340,7 @@ export default function LobbyPage() {
                   ))}
 
                   {/* Empty slots */}
-                  {Array.from({ length: room.maxPlayers - room.players.length }, (_, index) => (
+                  {Array.from({ length:12 - room.players.length }, (_, index) => (
                     <div
                       key={`empty-${index}`}
                       className="bg-muted/50 border-2 border-dashed border-muted rounded-lg p-4 flex items-center justify-center"
@@ -233,7 +356,7 @@ export default function LobbyPage() {
             </Card>
 
             {/* Game Rules Quick Reference */}
-            <Card className="bg-game-card border-0 shadow-lg mt-6">
+            <Card className="bg-game-card border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Quick Rules</CardTitle>
               </CardHeader>

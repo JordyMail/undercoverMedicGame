@@ -1230,7 +1230,7 @@ export default function OfflineGame() {
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center">
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Chat
+                  Catatan
                 </h4>
                 
                 <ScrollArea className="h-40 mb-4 border rounded p-3" ref={chatScrollRef}>

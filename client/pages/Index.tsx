@@ -270,7 +270,7 @@ export default function HomePage() {
           transition={{ delay: 1 }}
           className="text-center text-sm text-gray-400"
         >
-          <p>© 2024 Uncoverles - Medical Diagnosis Game</p>
+          <p>© 2026 Uncoverles - Medical Diagnosis Game</p>
           <p className="mt-1">Diagnosa, Diskusi, Eliminasi, Menangkan!</p>
         </motion.div>
       </div>

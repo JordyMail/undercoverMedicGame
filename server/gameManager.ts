@@ -100,7 +100,7 @@ class GameManager {
         round: 0,
         hostId: playerId,
         diseases: [],
-        maxPlayers: 10,
+        maxPlayers: 12,
         minPlayers: 4,
         currentVotes: {},
         finalVotes: {},
