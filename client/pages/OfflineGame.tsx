@@ -49,7 +49,7 @@ interface Player {
     treatment: string;
     innovation: string;
   };
-  pairId?: string; // Ini untuk menyimpan ID pasangan
+  pairId?: string;
 }
 
 interface VoteRecord {
@@ -89,10 +89,69 @@ interface GameState {
     timestamp: Date;
   }[];
   roleDistribution?: RoleDistribution;
-  // Untuk melacak urutan pemain yang sudah melihat kartu
-  viewingOrder: string[]; // Array of player IDs in viewing order
-  mrWhiteIndex: number | null; // Index Mr. White dalam urutan viewing
+  viewingOrder: string[];
+  mrWhiteIndex: number | null;
 }
+
+// Interface untuk sistem poin
+interface ScoreBreakdown {
+  category: string;
+  points: number;
+  description: string;
+}
+
+interface PlayerScore {
+  playerId: string;
+  playerName: string;
+  role: PlayerRole;
+  totalScore: number;
+  isAlive: boolean;
+  rank?: number;
+  breakdown: ScoreBreakdown[];
+  roundScores: RoundScore[];
+}
+
+interface RoundScore {
+  round: number;
+  score: number;
+  breakdown: ScoreBreakdown[];
+}
+
+interface EliminationRecord {
+  round: number;
+  eliminatedId: string;
+  eliminatedRole: PlayerRole;
+  votedBy: string[];
+  influencedByMrWhite?: boolean;
+}
+
+interface GameResult {
+  winner: 'civilian' | 'undercover' | 'mrwhite' | null;
+  winReason: string;
+  finalRound: number;
+}
+
+// CONSTANTS POIN
+const POINTS = {
+  CIVILIAN: {
+    WIN_ALIVE: 200,
+    WIN_DEAD: 100,
+    LAST_MAN_STANDING: 300,
+    FALSE_ACCUSER_PENALTY: -100
+  },
+  UNDERCOVER: {
+    WIN_BASE: 600,
+    ELIMINATION_2: 700,
+    ELIMINATION_3: 800,
+    ELIMINATION_4_PLUS: 1000,
+    CONSOLATION_TOP3: 100
+  },
+  MR_WHITE: {
+    SURVIVAL_WIN: 1000,
+    CORRECT_GUESS: 600,
+    PROVOCATION_BONUS_PER_PERSON: 200
+  }
+};
 
 // Mock avatars
 const AVATARS = [
@@ -136,50 +195,33 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 // Fungsi untuk membuat urutan viewing yang acak dengan Mr. White tidak boleh pertama
-// Fungsi untuk membuat urutan viewing yang acak dengan Mr. White tidak boleh pertama
 const createViewingOrder = (players: Player[]): { viewingOrder: string[], mrWhiteIndex: number | null } => {
-  // Buat array of player IDs
   const playerIds = players.map(p => p.id);
-  
-  // Cari index Mr. White
   const mrWhiteId = players.find(p => p.role === 'mrwhite')?.id;
   
   if (!mrWhiteId) {
-    // Jika tidak ada Mr. White, acak semua pemain
     return { 
       viewingOrder: shuffleArray(playerIds), 
       mrWhiteIndex: null 
     };
   }
   
-  // Pisahkan Mr. White dari pemain lain
   const otherIds = playerIds.filter(id => id !== mrWhiteId);
-  
-  // Acak urutan pemain lain
   const shuffledOthers = shuffleArray(otherIds);
-  
-  // Tentukan posisi Mr. White (1 sampai panjang array)
-  // Math.random() * shuffledOthers.length memberikan angka 0 sampai length-1
-  // Kita tambah 1 karena tidak boleh di posisi 0 (pertama)
   const mrWhitePosition = Math.floor(Math.random() * shuffledOthers.length) + 1;
   
-  // Buat urutan viewing
   const viewingOrder: string[] = [];
   
   for (let i = 0; i <= shuffledOthers.length; i++) {
     if (i === mrWhitePosition) {
-      // Masukkan Mr. White di posisi ini
       viewingOrder.push(mrWhiteId);
     } else if (i < mrWhitePosition) {
-      // Masukkan pemain sebelum Mr. White
       viewingOrder.push(shuffledOthers[i]);
     } else {
-      // Masukkan pemain setelah Mr. White (i-1 karena kita sudah memasukkan Mr. White)
       viewingOrder.push(shuffledOthers[i - 1]);
     }
   }
   
-  // Dapatkan index Mr. White dalam array
   const mrWhiteIndex = viewingOrder.indexOf(mrWhiteId);
   
   console.log('Viewing order:', viewingOrder.map(id => {
@@ -198,7 +240,6 @@ const assignRoles = (
 ): { players: Player[], themeId: string, themeName: string } => {
   const totalPlayers = players.length;
   
-  // Gunakan custom role distribution jika ada, jika tidak hitung otomatis
   let undercoverCount: number, mrwhiteCount: number, civilianCount: number;
   
   if (customRoleDistribution) {
@@ -206,7 +247,6 @@ const assignRoles = (
     undercoverCount = customRoleDistribution.undercover;
     mrwhiteCount = customRoleDistribution.mrwhite;
     
-    // Validasi tambahan untuk keamanan
     if (civilianCount + undercoverCount + mrwhiteCount !== totalPlayers) {
       console.warn('Custom role distribution total mismatch, using auto calculation');
       undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
@@ -214,7 +254,6 @@ const assignRoles = (
       civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
     }
   } else {
-    // Auto calculation
     undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
     mrwhiteCount = totalPlayers >= 6 ? Math.floor(totalPlayers * 0.1) : 0;
     
@@ -226,7 +265,6 @@ const assignRoles = (
     civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
   }
 
-  // Pilih tema
   let selectedThemeId = themeId;
   let selectedTheme;
   
@@ -245,13 +283,12 @@ const assignRoles = (
   // PILIH 1 PASANGAN PENYAKIT SECARA ACAK DARI THEME
   const diseasePairs = [...selectedTheme.diseases];
   const shuffledPairs = shuffleArray(diseasePairs);
-  const selectedPair = shuffledPairs[0]; // Ambil pasangan pertama setelah diacak
+  const selectedPair = shuffledPairs[0];
   
   console.log('Selected pair:', selectedPair);
   console.log('Main diagnose (for civilians):', selectedPair.mainDiagnose);
   console.log('Differential diagnose (for undercovers):', selectedPair.differentialDiagnose);
 
-  // Siapkan peran sesuai distribusi yang ditentukan
   const roles: PlayerRole[] = [
     ...Array(civilianCount).fill('civilian'),
     ...Array(undercoverCount).fill('undercover'),
@@ -261,17 +298,14 @@ const assignRoles = (
   const shuffledRoles = shuffleArray(roles);
   console.log('Roles distribution:', shuffledRoles.map(r => r));
 
-  // Assign roles dan kata - SEMUA MENGGUNAKAN 1 PASANGAN YANG SAMA
   const assignedPlayers = players.map((player, index) => {
     const role = shuffledRoles[index] || 'civilian';
     let word = '';
     let hint = '';
 
     if (role === 'civilian') {
-      // Semua civilian mendapat mainDiagnose yang SAMA
       word = selectedPair.mainDiagnose;
     } else if (role === 'undercover') {
-      // Semua undercover mendapat differentialDiagnose yang SAMA
       word = selectedPair.differentialDiagnose;
     } else if (role === 'mrwhite') {
       word = '';
@@ -287,15 +321,13 @@ const assignRoles = (
       is_alive: true,
       has_seen_word: false,
       vote_count: 0,
-      pairId: selectedPair.id // Simpan ID pasangan untuk referensi
+      pairId: selectedPair.id
     };
   });
 
-  // Tentukan kata untuk Civilian dan Undercover
   const civilianWord = selectedPair.mainDiagnose;
   const undercoverWord = selectedPair.differentialDiagnose;
 
-  // Log hasil assign untuk debugging
   console.log('Final player assignments:');
   assignedPlayers.forEach((p, i) => {
     console.log(`Player ${i+1}: ${p.name}, Role: ${p.role}, Word: ${p.word}`);
@@ -318,7 +350,6 @@ const getEliminatedPlayer = (players: Player[]): Player | null => {
   if (candidates.length === 1) {
     return candidates[0];
   } else if (candidates.length > 1) {
-    // Random tie-breaker
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
@@ -331,7 +362,29 @@ const checkWinCondition = (players: Player[], round: number, civilianWord: strin
   const aliveMrWhite = alivePlayers.filter(p => p.role === 'mrwhite').length;
   const aliveCivilians = alivePlayers.filter(p => p.role === 'civilian').length;
 
-  // Check Mr. White win condition (handled separately in elimination phase)
+  // CEK JUMLAH PEMAIN TERSISA - TAMBAHAN BARU
+  // Jika pemain tersisa 3 orang, game otomatis berakhir
+  if (alivePlayers.length === 3) {
+    // Hitung komposisi pemain yang tersisa
+    if (aliveUndercover >= 2) {
+      return {
+        winner: 'undercover',
+        reason: `Game berakhir dengan 3 pemain tersisa (${aliveUndercover} Undercover, ${aliveCivilians} Civilian, ${aliveMrWhite} Mr. White) - Undercover dominan!`
+      };
+    } else if (aliveMrWhite === 1 && aliveUndercover === 0) {
+      return {
+        winner: 'mrwhite',
+        reason: `Game berakhir dengan 3 pemain tersisa - Mr. White masih bertahan!`
+      };
+    } else if (aliveCivilians >= 2) {
+      return {
+        winner: 'civilian',
+        reason: `Game berakhir dengan 3 pemain tersisa (${aliveCivilians} Civilian, ${aliveUndercover} Undercover, ${aliveMrWhite} Mr. White) - Civilian mendominasi!`
+      };
+    }
+  }
+
+  // Check Mr. White win condition
   const mrWhite = players.find(p => p.role === 'mrwhite' && p.mrWhiteCorrectGuess);
   if (mrWhite) {
     return {
@@ -367,36 +420,301 @@ const checkWinCondition = (players: Player[], round: number, civilianWord: strin
   return { winner: null, reason: '' };
 };
 
-const calculatePlayerScore = (player: Player, gameInfo: { winner: string | null; totalRounds: number }) => {
+// ==================== FUNGSI PERHITUNGAN POIN ====================
+
+// Fungsi utama untuk menghitung skor semua pemain
+function calculateAllScores(
+  players: Player[],
+  gameResult: GameResult,
+  votingHistory: VoteRecord[],
+  eliminationHistory: EliminationRecord[],
+  totalRounds: number
+): PlayerScore[] {
+  
+  const scores: PlayerScore[] = [];
+  
+  for (const player of players) {
+    const playerScore = calculatePlayerScore(
+      player,
+      gameResult,
+      votingHistory,
+      eliminationHistory,
+      totalRounds,
+      players
+    );
+    scores.push(playerScore);
+  }
+  
+  return scores.sort((a, b) => b.totalScore - a.totalScore);
+}
+
+// Fungsi untuk menghitung skor individual pemain
+function calculatePlayerScore(
+  player: Player,
+  gameResult: GameResult,
+  votingHistory: VoteRecord[],
+  eliminationHistory: EliminationRecord[],
+  totalRounds: number,
+  allPlayers: Player[]
+): PlayerScore {
+  
+  const breakdown: ScoreBreakdown[] = [];
+  let totalScore = 0;
+  
+  switch (player.role) {
+    case 'civilian':
+      totalScore = calculateCivilianScore(player, gameResult, allPlayers, breakdown);
+      break;
+    case 'undercover':
+      totalScore = calculateUndercoverScore(
+        player, 
+        gameResult, 
+        eliminationHistory, 
+        allPlayers, 
+        totalRounds, 
+        breakdown
+      );
+      break;
+    case 'mrwhite':
+      totalScore = calculateMrWhiteScore(
+        player, 
+        gameResult, 
+        eliminationHistory, 
+        votingHistory, 
+        breakdown
+      );
+      break;
+  }
+  
+  return {
+    playerId: player.id,
+    playerName: player.name,
+    role: player.role,
+    totalScore,
+    isAlive: player.is_alive,
+    breakdown,
+    roundScores: []
+  };
+}
+
+// 1. Fungsi untuk Civilian
+function calculateCivilianScore(
+  player: Player,
+  gameResult: GameResult,
+  allPlayers: Player[],
+  breakdown: ScoreBreakdown[]
+): number {
   let score = 0;
-  const breakdown: { label: string; points: number }[] = [];
+  const isCivilianWin = gameResult.winner === 'civilian';
+  
+  const isLastManStanding = checkLastManStanding(player, allPlayers, gameResult);
+  
+  if (isCivilianWin) {
+    if (player.is_alive) {
+      score += POINTS.CIVILIAN.WIN_ALIVE;
+      breakdown.push({
+        category: 'win_alive',
+        points: POINTS.CIVILIAN.WIN_ALIVE,
+        description: 'Tim Civilian menang dan masih hidup'
+      });
+    } else {
+      score += POINTS.CIVILIAN.WIN_DEAD;
+      breakdown.push({
+        category: 'win_dead',
+        points: POINTS.CIVILIAN.WIN_DEAD,
+        description: 'Tim Civilian menang (sudah tereliminasi)'
+      });
+    }
+  }
+  
+  if (isLastManStanding) {
+    score += POINTS.CIVILIAN.LAST_MAN_STANDING;
+    breakdown.push({
+      category: 'last_man_standing',
+      points: POINTS.CIVILIAN.LAST_MAN_STANDING,
+      description: 'Menjadi satu-satunya Civilian yang bertahan'
+    });
+  }
+  
+  return Math.max(0, score);
+}
 
-  // Base survival points
+// 2. Fungsi untuk Undercover
+function calculateUndercoverScore(
+  player: Player,
+  gameResult: GameResult,
+  eliminationHistory: EliminationRecord[],
+  allPlayers: Player[],
+  totalRounds: number,
+  breakdown: ScoreBreakdown[]
+): number {
+  let score = 0;
+  const isUndercoverWin = gameResult.winner === 'undercover';
+  
+  if (isUndercoverWin) {
+    const undercoverEliminations = eliminationHistory.filter(elim => 
+      elim.eliminatedRole === 'civilian' || elim.eliminatedRole === 'mrwhite'
+    ).length;
+    
+    score += POINTS.UNDERCOVER.WIN_BASE;
+    breakdown.push({
+      category: 'win_base',
+      points: POINTS.UNDERCOVER.WIN_BASE,
+      description: 'Tim Undercover menang'
+    });
+    
+    if (undercoverEliminations === 2) {
+      score += POINTS.UNDERCOVER.ELIMINATION_2 - POINTS.UNDERCOVER.WIN_BASE;
+      breakdown.push({
+        category: 'elimination_bonus',
+        points: POINTS.UNDERCOVER.ELIMINATION_2 - POINTS.UNDERCOVER.WIN_BASE,
+        description: 'Berhasil mengeliminasi 2 lawan'
+      });
+    } else if (undercoverEliminations === 3) {
+      score += POINTS.UNDERCOVER.ELIMINATION_3 - POINTS.UNDERCOVER.WIN_BASE;
+      breakdown.push({
+        category: 'elimination_bonus',
+        points: POINTS.UNDERCOVER.ELIMINATION_3 - POINTS.UNDERCOVER.WIN_BASE,
+        description: 'Berhasil mengeliminasi 3 lawan'
+      });
+    } else if (undercoverEliminations >= 4) {
+      score += POINTS.UNDERCOVER.ELIMINATION_4_PLUS - POINTS.UNDERCOVER.WIN_BASE;
+      breakdown.push({
+        category: 'elimination_bonus',
+        points: POINTS.UNDERCOVER.ELIMINATION_4_PLUS - POINTS.UNDERCOVER.WIN_BASE,
+        description: `Berhasil mengeliminasi ${undercoverEliminations} lawan`
+      });
+    }
+  } else {
+    const rank = calculatePlayerRank(player, allPlayers);
+    if (rank <= 3) {
+      score += POINTS.UNDERCOVER.CONSOLATION_TOP3;
+      breakdown.push({
+        category: 'consolation_top3',
+        points: POINTS.UNDERCOVER.CONSOLATION_TOP3,
+        description: `Masuk 3 besar (Peringkat ${rank})`
+      });
+    }
+  }
+  
+  return score;
+}
+
+// 3. Fungsi untuk Mr. White
+function calculateMrWhiteScore(
+  player: Player,
+  gameResult: GameResult,
+  eliminationHistory: EliminationRecord[],
+  votingHistory: VoteRecord[],
+  breakdown: ScoreBreakdown[]
+): number {
+  let score = 0;
+  
+  const isSurvivalWin = gameResult.winner === 'mrwhite' && player.is_alive;
+  
+  if (isSurvivalWin) {
+    score += POINTS.MR_WHITE.SURVIVAL_WIN;
+    breakdown.push({
+      category: 'survival_win',
+      points: POINTS.MR_WHITE.SURVIVAL_WIN,
+      description: 'Mr. White menang dengan bertahan hidup'
+    });
+  }
+  
+  if (!player.is_alive && player.mrWhiteCorrectGuess) {
+    score += POINTS.MR_WHITE.CORRECT_GUESS;
+    breakdown.push({
+      category: 'correct_guess',
+      points: POINTS.MR_WHITE.CORRECT_GUESS,
+      description: 'Tebakan kata Civilian benar'
+    });
+  }
+  
+  const provocationCount = countProvokedEliminations(player, eliminationHistory, votingHistory);
+  if (provocationCount > 0) {
+    const bonus = provocationCount * POINTS.MR_WHITE.PROVOCATION_BONUS_PER_PERSON;
+    score += bonus;
+    breakdown.push({
+      category: 'provocation_bonus',
+      points: bonus,
+      description: `Mempengaruhi ${provocationCount} eliminasi (${POINTS.MR_WHITE.PROVOCATION_BONUS_PER_PERSON} poin/orang)`
+    });
+  }
+  
+  return score;
+}
+
+// Helper Functions untuk perhitungan poin
+function checkLastManStanding(player: Player, allPlayers: Player[], gameResult: GameResult): boolean {
+  if (player.role !== 'civilian' || !player.is_alive) return false;
+  
+  const aliveCivilians = allPlayers.filter(p => p.role === 'civilian' && p.is_alive).length;
+  return gameResult.winner === 'civilian' && aliveCivilians === 1 && player.is_alive;
+}
+
+function calculatePlayerRank(player: Player, allPlayers: Player[]): number {
+  const eliminatedPlayers = allPlayers.filter(p => !p.is_alive).length;
+  
   if (player.is_alive) {
-    score += 100;
-    breakdown.push({ label: 'Bertahan hidup', points: 100 });
+    return 1;
+  } else {
+    return eliminatedPlayers + 1;
   }
+}
 
-  // Role-specific scoring
-  if (player.role === 'civilian') {
-    if (gameInfo.winner === 'civilian') {
-      score += 150;
-      breakdown.push({ label: 'Tim Civilian menang', points: 150 });
-    }
-  } else if (player.role === 'undercover') {
-    if (gameInfo.winner === 'undercover') {
-      score += 200;
-      breakdown.push({ label: 'Tim Undercover menang', points: 200 });
-    }
-  } else if (player.role === 'mrwhite') {
-    if (gameInfo.winner === 'mrwhite') {
-      score += 300;
-      breakdown.push({ label: 'Mr. White menang', points: 300 });
+function countProvokedEliminations(
+  mrWhite: Player,
+  eliminationHistory: EliminationRecord[],
+  votingHistory: VoteRecord[]
+): number {
+  let count = 0;
+  
+  for (const elimination of eliminationHistory) {
+    const mrWhiteVote = votingHistory.find(v => 
+      v.voterId === mrWhite.id &&
+      v.targetId === elimination.eliminatedId
+    );
+    
+    if (mrWhiteVote) {
+      count++;
     }
   }
+  
+  return count;
+}
 
-  return { score, breakdown };
-};
+function calculateFinalScoresWithRules(
+  gameState: GameState,
+  gameResult: GameResult
+): PlayerScore[] {
+  
+  const eliminationHistory: EliminationRecord[] = [];
+  
+  for (const vote of gameState.votingHistory) {
+    if (vote.eliminatedId) {
+      eliminationHistory.push({
+        round: vote.round,
+        eliminatedId: vote.eliminatedId,
+        eliminatedRole: vote.eliminatedRole!,
+        votedBy: gameState.votingHistory
+          .filter(v => v.round === vote.round && v.targetId === vote.eliminatedId)
+          .map(v => v.voterId)
+      });
+    }
+  }
+  
+  const scores = calculateAllScores(
+    gameState.players,
+    gameResult,
+    gameState.votingHistory,
+    eliminationHistory,
+    gameState.round
+  );
+  
+  return scores;
+}
+
+// ==================== END FUNGSI PERHITUNGAN POIN ====================
 
 export default function OfflineGame() {
   const navigate = useNavigate();
@@ -435,31 +753,20 @@ export default function OfflineGame() {
       const gameData = JSON.parse(storedData);
       const themeId = gameData.themeId === 'random' ? null : gameData.themeId;
       
-      // Assign roles to players dengan custom role distribution jika ada
       const result = assignRoles(
         gameData.players, 
         themeId,
         gameData.roleDistribution
       );
       
-      // Buat urutan viewing yang acak dengan Mr. White tidak boleh pertama
       const { viewingOrder, mrWhiteIndex } = createViewingOrder(result.players);
       
-      // Urutkan players berdasarkan viewingOrder untuk memudahkan akses
       const orderedPlayers = viewingOrder.map(id => 
         result.players.find(p => p.id === id)!
       );
       
-      // Dapatkan kata pertama untuk referensi
       const civilianPlayer = orderedPlayers.find(p => p.role === 'civilian');
       const undercoverPlayer = orderedPlayers.find(p => p.role === 'undercover');
-
-      // Catat distribusi role di chat
-      const roleCounts = {
-        civilian: orderedPlayers.filter(p => p.role === 'civilian').length,
-        undercover: orderedPlayers.filter(p => p.role === 'undercover').length,
-        mrwhite: orderedPlayers.filter(p => p.role === 'mrwhite').length
-      };
 
       setTimeout(() => {
         setGameState({
@@ -510,7 +817,6 @@ export default function OfflineGame() {
     const nextIndex = gameState.currentPlayerIndex + 1;
     
     if (nextIndex >= gameState.players.length) {
-      // All players have seen their words
       setGameState({
         ...gameState,
         players: updatedPlayers,
@@ -529,7 +835,6 @@ export default function OfflineGame() {
 
   // Start voting phase
   const startVoting = () => {
-    // Reset vote counts
     const resetPlayers = gameState.players.map(p => ({ ...p, vote_count: 0 }));
     setGameState({
       ...gameState,
@@ -547,7 +852,6 @@ export default function OfflineGame() {
     
     if (!currentVoter || !target) return;
 
-    // Record vote for scoring
     const voteRecord: VoteRecord = {
       round: gameState.round,
       voterId: currentVoter.id,
@@ -564,7 +868,6 @@ export default function OfflineGame() {
     const updatedAlivePlayers = updatedPlayers.filter(p => p.is_alive);
     
     if (nextVoter >= updatedAlivePlayers.length) {
-      // All votes cast - determine elimination
       const eliminated = getEliminatedPlayer(updatedPlayers);
       
       if (eliminated) {
@@ -598,7 +901,6 @@ export default function OfflineGame() {
 
     const isCorrect = mrWhiteGuess.trim().toLowerCase() === gameState.civilianWord.toLowerCase();
     
-    // Mark Mr. White's guess result
     const updatedPlayers = gameState.players.map(p => {
       if (p.id === gameState.eliminatedPlayer?.id && p.role === 'mrwhite') {
         return { ...p, mrWhiteCorrectGuess: isCorrect };
@@ -615,7 +917,6 @@ export default function OfflineGame() {
         winReason: 'Mr. White berhasil menebak kata Civilian dengan benar!'
       });
     } else {
-      // Continue checking win condition
       setGameState({
         ...gameState,
         players: updatedPlayers
@@ -638,7 +939,6 @@ export default function OfflineGame() {
         winReason: result.reason
       }));
     } else {
-      // Continue to next round
       setGameState(prev => ({
         ...prev,
         phase: 'playing',
@@ -668,21 +968,6 @@ export default function OfflineGame() {
     setChatMessage('');
   };
 
-  // Calculate final scores
-  const calculateFinalScores = () => {
-    const playersWithScores = gameState.players.map(player => {
-      const { score, breakdown } = calculatePlayerScore(player, {
-        winner: gameState.winner,
-        totalRounds: gameState.round
-      });
-      
-      return { ...player, score, scoreBreakdown: breakdown };
-    });
-    
-    // Sort by score descending
-    return playersWithScores.sort((a, b) => (b.score || 0) - (a.score || 0));
-  };
-
   // Restart game
   const restartGame = () => {
     sessionStorage.removeItem('offlineGameData');
@@ -699,7 +984,6 @@ export default function OfflineGame() {
   const alivePlayers = gameState.players.filter(p => p.is_alive);
   const eliminatedPlayers = gameState.players.filter(p => !p.is_alive);
 
-  // Cek apakah current player adalah Mr. White
   const isCurrentPlayerMrWhite = currentPlayer?.role === 'mrwhite';
 
   const getRoleIcon = (role: PlayerRole) => {
@@ -811,7 +1095,6 @@ export default function OfflineGame() {
                       className={cn(
                         "flex items-center justify-between p-2 rounded-lg transition-colors",
                         player.is_alive ? "bg-white" : "bg-gray-50 opacity-60",
-                        // Tandai urutan viewing
                         gameState.phase === 'passDevice' && gameState.currentPlayerIndex === index && "ring-2 ring-emerald-500"
                       )}
                     >
@@ -826,7 +1109,6 @@ export default function OfflineGame() {
                               ✓
                             </Badge>
                           )}
-                          {/* Tampilkan indikator urutan */}
                           {gameState.phase === 'passDevice' && (
                             <span className="ml-2 text-xs text-gray-400">
                               #{gameState.viewingOrder.indexOf(player.id) + 1}
@@ -976,7 +1258,6 @@ export default function OfflineGame() {
                   exit={{ opacity: 0, scale: 0.95 }}
                 >
                   <Card className="border-0 shadow-xl overflow-hidden">
-                    {/* Hanya Mr. White yang melihat warna role di header */}
                     {isCurrentPlayerMrWhite && (
                       <div className={cn(
                         "h-2",
@@ -985,7 +1266,6 @@ export default function OfflineGame() {
                     )}
                     <CardContent className="p-8 text-center">
                       <div className="mb-6">
-                        {/* Hanya Mr. White yang melihat icon role */}
                         {isCurrentPlayerMrWhite ? (
                           <>
                             <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-purple-100">
@@ -997,11 +1277,9 @@ export default function OfflineGame() {
                           </>
                         ) : (
                           <>
-                            {/* Untuk Civilian dan Undercover - tidak menampilkan role */}
                             <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-100">
                               <span className="text-4xl">🎭</span>
                             </div>
-                            {/* Tidak menampilkan badge role */}
                           </>
                         )}
                       </div>
@@ -1032,7 +1310,6 @@ export default function OfflineGame() {
                           <div className="text-4xl font-bold py-4 px-8 rounded-xl inline-block bg-emerald-50 text-emerald-700">
                             {currentPlayer.word}
                           </div>
-                          {/* Tidak menampilkan hint untuk civilian/undercover */}
                         </div>
                       )}
 
@@ -1096,7 +1373,6 @@ export default function OfflineGame() {
                     </CardContent>
                   </Card>
 
-                  {/* Start Voting Button */}
                   <div className="text-center">
                     <Button
                       size="lg"
@@ -1156,101 +1432,101 @@ export default function OfflineGame() {
               )}
 
               {/* Elimination Phase */}
-{gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
-  <motion.div
-    key="elimination"
-    initial={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.9 }}
-  >
-    <Card className="border-0 shadow-lg overflow-hidden">
-      <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
-      <CardContent className="p-8 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", delay: 0.2 }}
-          className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
-        >
-          <Skull className="h-12 w-12 text-red-500" />
-        </motion.div>
+              {gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
+                <motion.div
+                  key="elimination"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <Card className="border-0 shadow-lg overflow-hidden">
+                    <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
+                    <CardContent className="p-8 text-center">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", delay: 0.2 }}
+                        className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                      >
+                        <Skull className="h-12 w-12 text-red-500" />
+                      </motion.div>
 
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
-        <p className="text-gray-500 mb-6">
-          {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
-        </p>
+                      <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
+                      <p className="text-gray-500 mb-6">
+                        {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
+                      </p>
 
-        <div className={cn(
-          "p-6 rounded-xl mb-6",
-          gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
-          gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
-        )}>
-          <div className="flex items-center justify-center space-x-3 mb-3">
-            <span className="text-2xl">
-              {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
-               gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
-            </span>
-            <span className={cn(
-              "text-xl font-bold",
-              gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
-              gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
-            )}>
-              {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
-              {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
-              {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
-            </span>
-          </div>
+                      <div className={cn(
+                        "p-6 rounded-xl mb-6",
+                        gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
+                        gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
+                      )}>
+                        <div className="flex items-center justify-center space-x-3 mb-3">
+                          <span className="text-2xl">
+                            {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
+                             gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
+                          </span>
+                          <span className={cn(
+                            "text-xl font-bold",
+                            gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
+                            gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
+                          )}>
+                            {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
+                            {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
+                            {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
+                          </span>
+                        </div>
+                      </div>
 
-          {/* HAPUS BAGIAN INI - JANGAN TAMPILKAN KATA RAHASIA UNTUK SIAPAPUN */}
-          {/* {gameState.eliminatedPlayer.role !== 'mrwhite' && (
-            <p className="text-gray-600">
-              Kata rahasia: <strong>{gameState.eliminatedPlayer.word}</strong>
-            </p>
-          )} */}
-        </div>
+                      {gameState.eliminatedPlayer.role === 'mrwhite' && (
+                        <div className="space-y-4 mb-6">
+                          <p className="text-gray-600">
+                            Mr. White punya kesempatan untuk menebak kata Civilian!
+                          </p>
+                          <div className="flex gap-2 max-w-md mx-auto">
+                            <Input
+                              placeholder="Masukkan tebakanmu..."
+                              value={mrWhiteGuess}
+                              onChange={(e) => setMrWhiteGuess(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={handleMrWhiteGuess}
+                              disabled={!mrWhiteGuess.trim()}
+                              className="bg-purple-500 hover:bg-purple-600"
+                            >
+                              Tebak
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
-        {gameState.eliminatedPlayer.role === 'mrwhite' && (
-          <div className="space-y-4 mb-6">
-            <p className="text-gray-600">
-              Mr. White punya kesempatan untuk menebak kata Civilian!
-            </p>
-            <div className="flex gap-2 max-w-md mx-auto">
-              <Input
-                placeholder="Masukkan tebakanmu..."
-                value={mrWhiteGuess}
-                onChange={(e) => setMrWhiteGuess(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleMrWhiteGuess}
-                disabled={!mrWhiteGuess.trim()}
-                className="bg-purple-500 hover:bg-purple-600"
-              >
-                Tebak
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {gameState.eliminatedPlayer.role !== 'mrwhite' && (
-          <Button
-            size="lg"
-            onClick={checkGameEnd}
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
-          >
-            <ChevronRight className="mr-2 h-5 w-5" />
-            Lanjutkan Permainan
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  </motion.div>
-)}
+                      {gameState.eliminatedPlayer.role !== 'mrwhite' && (
+                        <Button
+                          size="lg"
+                          onClick={checkGameEnd}
+                          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
+                        >
+                          <ChevronRight className="mr-2 h-5 w-5" />
+                          Lanjutkan Permainan
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
               {/* Finished Phase */}
               {gameState.phase === 'finished' && (() => {
-                const scoredPlayers = calculateFinalScores();
+                const gameResult: GameResult = {
+                  winner: gameState.winner,
+                  winReason: gameState.winReason,
+                  finalRound: gameState.round
+                };
+                
+                const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+                
                 return (
                   <motion.div
                     key="finished"
@@ -1280,7 +1556,6 @@ export default function OfflineGame() {
                         </div>
                         <p className="text-white/90 mb-6">{gameState.winReason}</p>
 
-                        {/* Reveal all words */}
                         <div className="bg-white/10 rounded-xl p-4 mb-4">
                           <p className="text-sm text-white/80 mb-2">Kata dalam permainan:</p>
                           <div className="flex justify-center gap-6">
@@ -1300,7 +1575,6 @@ export default function OfflineGame() {
                       </CardContent>
                     </Card>
 
-                    {/* Leaderboard */}
                     <Card className="border-0 shadow-lg mb-6">
                       <CardContent className="p-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -1308,7 +1582,8 @@ export default function OfflineGame() {
                           Leaderboard & Skor Akhir
                         </h2>
                         <div className="space-y-3">
-                          {scoredPlayers.map((player, index) => {
+                          {scoredPlayers.map((playerScore, index) => {
+                            const player = gameState.players.find(p => p.id === playerScore.playerId)!;
                             const roleColors = {
                               civilian: 'border-blue-200 bg-blue-50',
                               undercover: 'border-red-200 bg-red-50',
@@ -1328,7 +1603,6 @@ export default function OfflineGame() {
                                 )}
                               >
                                 <div className="flex items-center gap-4">
-                                  {/* Rank */}
                                   <div className={cn(
                                     'w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0',
                                     index === 0 && 'bg-amber-400 text-white',
@@ -1339,7 +1613,6 @@ export default function OfflineGame() {
                                     {index === 0 ? '👑' : index + 1}
                                   </div>
 
-                                  {/* Player Info */}
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-2xl">{getAvatarIcon(player.avatar_id)}</span>
@@ -1360,9 +1633,8 @@ export default function OfflineGame() {
                                       )}
                                     </div>
                                     
-                                    {/* Score Breakdown */}
-                                    <div className="flex flex-wrap gap-1 text-xs">
-                                      {player.scoreBreakdown?.map((item: any, i: number) => (
+                                    <div className="flex flex-wrap gap-1 text-xs mt-2">
+                                      {playerScore.breakdown.map((item, i) => (
                                         <span
                                           key={i}
                                           className={cn(
@@ -1370,19 +1642,18 @@ export default function OfflineGame() {
                                             item.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                           )}
                                         >
-                                          {item.label}: {item.points > 0 ? '+' : ''}{item.points}
+                                          {item.description}: {item.points > 0 ? '+' : ''}{item.points}
                                         </span>
                                       ))}
                                     </div>
                                   </div>
 
-                                  {/* Total Score */}
                                   <div className="text-center flex-shrink-0">
                                     <div className={cn(
                                       'text-3xl font-bold',
                                       index === 0 ? 'text-amber-500' : 'text-gray-700'
                                     )}>
-                                      {player.score}
+                                      {playerScore.totalScore}
                                     </div>
                                     <div className="text-xs text-gray-500">Poin</div>
                                   </div>
