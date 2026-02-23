@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/button';
@@ -18,9 +18,11 @@ import {
   UserPlus,
   Sparkles,
   AlertCircle,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { MEDICAL_THEMES, MedicalTheme } from '../../shared/medicalData';
 
 // Types
 interface Player {
@@ -41,16 +43,6 @@ const AVATARS = [
   { id: 8, icon: '🧬', name: 'Ahli Genetika' },
   { id: 9, icon: '🧪', name: 'Laboran' },
   { id: 10, icon: '📊', name: 'Epidemiolog' }
-];
-
-// Categories
-const CATEGORIES = [
-  'Penyakit Jantung',
-  'Penyakit Paru-paru',
-  'Penyakit Kulit',
-  'Penyakit Saraf',
-  'Penyakit Dalam',
-  'Penyakit Anak'
 ];
 
 // Utility functions
@@ -85,11 +77,11 @@ const calculateRoles = (totalPlayers: number) => {
 
 export default function OfflineSetup() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: players, 2: category, 3: settings
+  const [step, setStep] = useState(1);
   const [players, setPlayers] = useState<Player[]>([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerAvatar, setNewPlayerAvatar] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
   const [settings] = useState({
     civilian_percentage: 60,
     undercover_percentage: 30,
@@ -122,7 +114,7 @@ export default function OfflineSetup() {
   const startGame = () => {
     const gameData = {
       players,
-      category: selectedCategory,
+      themeId: selectedTheme,
       settings,
       roomCode: generateRoomCode(),
     };
@@ -134,15 +126,23 @@ export default function OfflineSetup() {
 
   const canProceed = () => {
     if (step === 1) return players.length >= 4;
-    if (step === 2) return selectedCategory !== null;
+    if (step === 2) return selectedTheme !== null;
     return true;
   };
 
   const roleDistribution = calculateRoles(players.length);
 
+  // Get theme name for display
+  const getSelectedThemeName = () => {
+    if (!selectedTheme) return '';
+    if (selectedTheme === 'random') return 'Acak';
+    const theme = MEDICAL_THEMES.find(t => t.id === selectedTheme);
+    return theme ? theme.name : selectedTheme;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -172,7 +172,7 @@ export default function OfflineSetup() {
         >
           {[
             { num: 1, label: 'Pemain', icon: Users },
-            { num: 2, label: 'Kategori', icon: Stethoscope },
+            { num: 2, label: 'Tema Medis', icon: Stethoscope },
             { num: 3, label: 'Siap Main', icon: Play },
           ].map((s, i) => (
             <React.Fragment key={s.num}>
@@ -210,12 +210,14 @@ export default function OfflineSetup() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
-              <Card className="border-0 shadow-lg mb-6">
+              {/* Kiri: Tambah Pemain */}
+              <Card className="border-0 shadow-lg h-fit">
                 <CardContent className="p-6">
                   <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-emerald-500" />
-                    Tambah Pemain ({players.length}/15)
+                    Tambah Pemain
                   </h2>
                   
                   {/* Add player form */}
@@ -259,12 +261,18 @@ export default function OfflineSetup() {
                         ))}
                       </div>
                     </div>
+
+                    <div className="pt-2">
+                      <p className="text-sm text-gray-500">
+                        Pemain ditambahkan: <span className="font-bold text-emerald-600">{players.length}/15</span>
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Players list */}
-              <Card className="border-0 shadow-lg mb-6">
+              {/* Kanan: Daftar Pemain */}
+              <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <h3 className="font-bold text-gray-800 mb-4 flex items-center justify-between">
                     <span className="flex items-center gap-2">
@@ -279,79 +287,83 @@ export default function OfflineSetup() {
                   </h3>
 
                   {players.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
-                      <Users className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                      <p>Belum ada pemain. Tambahkan minimal 4 pemain.</p>
+                    <div className="text-center py-12 text-gray-400">
+                      <Users className="w-16 h-16 mx-auto mb-3 opacity-30" />
+                      <p className="text-lg font-medium mb-1">Belum ada pemain</p>
+                      <p className="text-sm">Tambahkan minimal 4 pemain untuk melanjutkan</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {players.map((player, index) => {
-                        const avatar = AVATARS.find(a => a.id === player.avatar_id) || AVATARS[0];
-                        return (
-                          <motion.div
-                            key={player.id}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            className="relative bg-white border-2 border-gray-200 rounded-xl p-3 group hover:border-emerald-300 transition-colors"
-                          >
-                            <div className="text-center">
-                              <div className="text-3xl mb-1">{avatar.icon}</div>
-                              <p className="font-medium text-gray-800 text-sm truncate">{player.name}</p>
-                              <p className="text-xs text-gray-400">#{index + 1}</p>
-                              
-                              {/* Avatar selector dropdown */}
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <select
-                                  value={player.avatar_id}
-                                  onChange={(e) => updatePlayerAvatar(player.id, parseInt(e.target.value))}
-                                  className="text-xs bg-white border border-gray-200 rounded p-1"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {AVATARS.map(a => (
-                                    <option key={a.id} value={a.id}>{a.icon}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => removePlayer(player.id)}
-                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[400px]  pr-1">
+                        {players.map((player, index) => {
+                          const avatar = AVATARS.find(a => a.id === player.avatar_id) || AVATARS[0];
+                          return (
+                            <motion.div
+                              key={player.id}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              className="relative bg-white border-2 border-gray-200 rounded-xl p-3 group hover:border-emerald-300 transition-colors"
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Role preview */}
-                  {players.length >= 4 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 pt-4 border-t border-gray-100"
-                    >
-                      <p className="text-sm text-gray-500 mb-2">Distribusi Peran:</p>
-                      <div className="flex gap-3 flex-wrap">
-                        <Badge className="bg-blue-100 text-blue-700 border-0">
-                          🏥 Civilian: {roleDistribution.civilian}
-                        </Badge>
-                        <Badge className="bg-red-100 text-red-700 border-0">
-                          🕵️ Undercover: {roleDistribution.undercover}
-                        </Badge>
-                        <Badge className="bg-purple-100 text-purple-700 border-0">
-                          👻 Mr. White: {roleDistribution.mrwhite}
-                        </Badge>
+                              <div className="text-center">
+                                <div className="text-3xl mb-1">{avatar.icon}</div>
+                                <p className="font-medium text-gray-800 text-sm truncate">{player.name}</p>
+                                <p className="text-xs text-gray-400">#{index + 1}</p>
+                                
+                                {/* Avatar selector dropdown */}
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <select
+                                    value={player.avatar_id}
+                                    onChange={(e) => updatePlayerAvatar(player.id, parseInt(e.target.value))}
+                                    className="text-xs bg-white border border-gray-200 rounded p-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {AVATARS.map(a => (
+                                      <option key={a.id} value={a.id}>{a.icon}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => removePlayer(player.id)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </motion.div>
+                          );
+                        })}
                       </div>
-                    </motion.div>
+
+                      {/* Role preview */}
+                      {players.length >= 4 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mt-4 pt-4 border-t border-gray-100"
+                        >
+                          <p className="text-sm text-gray-500 mb-2">Distribusi Peran:</p>
+                          <div className="flex gap-3 flex-wrap">
+                            <Badge className="bg-blue-100 text-blue-700 border-0">
+                              🏥 Civilian: {roleDistribution.civilian}
+                            </Badge>
+                            <Badge className="bg-red-100 text-red-700 border-0">
+                              🕵️ Undercover: {roleDistribution.undercover}
+                            </Badge>
+                            <Badge className="bg-purple-100 text-purple-700 border-0">
+                              👻 Mr. White: {roleDistribution.mrwhite}
+                            </Badge>
+                          </div>
+                        </motion.div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
 
+              {/* Warning message - full width di bawah kedua kolom */}
               {players.length < 4 && (
-                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-xl mb-6">
+                <div className="md:col-span-2 flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-xl">
                   <AlertCircle className="w-5 h-5 flex-shrink-0" />
                   <p className="text-sm">Tambahkan {4 - players.length} pemain lagi untuk melanjutkan</p>
                 </div>
@@ -359,7 +371,7 @@ export default function OfflineSetup() {
             </motion.div>
           )}
 
-          {/* Step 2: Select Category */}
+          {/* Step 2: Select Medical Theme */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -371,7 +383,7 @@ export default function OfflineSetup() {
                 <CardContent className="p-6">
                   <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Stethoscope className="w-5 h-5 text-emerald-500" />
-                    Pilih Kategori Penyakit
+                    Pilih Tema Medis
                   </h2>
                   <p className="text-gray-500 text-sm mb-6">
                     Pilih spesialisasi medis untuk kata-kata dalam permainan ini
@@ -382,10 +394,10 @@ export default function OfflineSetup() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedCategory('random')}
+                      onClick={() => setSelectedTheme('random')}
                       className={cn(
                         'p-4 rounded-xl border-2 text-left transition-all relative',
-                        selectedCategory === 'random'
+                        selectedTheme === 'random'
                           ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg'
                           : 'border-gray-200 bg-white hover:border-gray-300'
                       )}
@@ -395,26 +407,30 @@ export default function OfflineSetup() {
                         <span className="font-bold text-gray-800">Acak</span>
                       </div>
                       <p className="text-xs text-gray-500">Sistem pilihkan secara acak</p>
-                      {selectedCategory === 'random' && (
+                      {selectedTheme === 'random' && (
                         <Check className="absolute top-2 right-2 w-4 h-4 text-emerald-500" />
                       )}
                     </motion.button>
 
-                    {CATEGORIES.map((category) => (
+                    {MEDICAL_THEMES.map((theme) => (
                       <motion.button
-                        key={category}
+                        key={theme.id}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedCategory(category)}
+                        onClick={() => setSelectedTheme(theme.id)}
                         className={cn(
                           'p-4 rounded-xl border-2 text-left transition-all relative',
-                          selectedCategory === category
+                          selectedTheme === theme.id
                             ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-lg'
                             : 'border-gray-200 bg-white hover:border-gray-300'
                         )}
                       >
-                        <span className="font-medium text-gray-800 text-sm">{category}</span>
-                        {selectedCategory === category && (
+                        <span className="font-medium text-gray-800 text-sm block mb-1">{theme.name}</span>
+                        <p className="text-xs text-gray-400 line-clamp-2">{theme.description}</p>
+                        <Badge className="mt-2 bg-emerald-50 text-emerald-600 text-xs border-0">
+                          {theme.diseases.length} pasang kata
+                        </Badge>
+                        {selectedTheme === theme.id && (
                           <Check className="absolute top-2 right-2 w-4 h-4 text-emerald-500" />
                         )}
                       </motion.button>
@@ -449,9 +465,9 @@ export default function OfflineSetup() {
                         <p className="font-bold text-gray-800 text-lg">{players.length} orang</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Kategori</p>
+                        <p className="text-gray-500">Tema Medis</p>
                         <p className="font-bold text-gray-800 text-lg">
-                          {selectedCategory === 'random' ? '🎲 Acak' : selectedCategory}
+                          {selectedTheme === 'random' ? '🎲 Acak' : getSelectedThemeName()}
                         </p>
                       </div>
                     </div>

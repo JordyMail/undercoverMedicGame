@@ -25,9 +25,12 @@ import {
   Heart,
   X,
   LogOut,
-  Sparkles
+  Sparkles,
+  Check,
+  Send
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { MEDICAL_THEMES, generateDiseaseCards, DiseaseCard } from '../../shared/medicalData';
 
 // Types
 type PlayerRole = 'civilian' | 'undercover' | 'mrwhite' | null;
@@ -40,7 +43,7 @@ interface Player {
   role: PlayerRole;
   word?: string;
   hint?: string;
-  category?: string;
+  themeId?: string;
   is_alive: boolean;
   has_seen_word: boolean;
   vote_count: number;
@@ -68,7 +71,8 @@ interface GameState {
   round: number;
   civilianWord: string;
   undercoverWord: string;
-  category: string;
+  themeId: string;
+  themeName: string;
   eliminatedPlayer: Player | null;
   winner: 'civilian' | 'undercover' | 'mrwhite' | null;
   winReason: string;
@@ -81,43 +85,6 @@ interface GameState {
     timestamp: Date;
   }[];
 }
-
-// Mock data for diseases
-const DISEASE_CATEGORIES = [
-  'Penyakit Jantung',
-  'Penyakit Paru-paru',
-  'Penyakit Kulit',
-  'Penyakit Saraf',
-  'Penyakit Dalam',
-  'Penyakit Anak'
-];
-
-const DISEASE_WORDS: Record<string, { civilian: string; undercover: string }> = {
-  'Penyakit Jantung': {
-    civilian: 'Aritmia',
-    undercover: 'Takikardia'
-  },
-  'Penyakit Paru-paru': {
-    civilian: 'Asma',
-    undercover: 'Bronkitis'
-  },
-  'Penyakit Kulit': {
-    civilian: 'Eksim',
-    undercover: 'Psoriasis'
-  },
-  'Penyakit Saraf': {
-    civilian: 'Migrain',
-    undercover: 'Vertigo'
-  },
-  'Penyakit Dalam': {
-    civilian: 'Diabetes',
-    undercover: 'Hipertensi'
-  },
-  'Penyakit Anak': {
-    civilian: 'Campak',
-    undercover: 'Cacar Air'
-  }
-};
 
 // Mock avatars
 const AVATARS = [
@@ -143,18 +110,40 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-const assignRoles = (players: any[], category: string | null): Player[] => {
+const assignRoles = (players: any[], themeId: string | null): { players: Player[], themeId: string, themeName: string } => {
   const totalPlayers = players.length;
   const undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
   const mrwhiteCount = Math.max(0, Math.floor(totalPlayers * 0.1));
   const civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
 
-  const selectedCategory = category || DISEASE_CATEGORIES[Math.floor(Math.random() * DISEASE_CATEGORIES.length)];
-  const words = DISEASE_WORDS[selectedCategory] || {
-    civilian: 'Demam',
-    undercover: 'Flu'
-  };
+  // Pilih tema
+  let selectedThemeId = themeId;
+  let selectedTheme;
+  
+  if (!selectedThemeId || selectedThemeId === 'random') {
+    const randomIndex = Math.floor(Math.random() * MEDICAL_THEMES.length);
+    selectedTheme = MEDICAL_THEMES[randomIndex];
+    selectedThemeId = selectedTheme.id;
+  } else {
+    selectedTheme = MEDICAL_THEMES.find(t => t.id === selectedThemeId);
+  }
 
+  if (!selectedTheme) {
+    throw new Error('Theme not found');
+  }
+
+  // Generate disease cards
+  const diseaseCards = generateDiseaseCards(selectedThemeId, totalPlayers);
+  
+  // Pisahkan kartu berdasarkan tipe
+  const mainCards = diseaseCards.filter(card => card.type === 'main');
+  const diffCards = diseaseCards.filter(card => card.type === 'differential');
+
+  // Acak kartu
+  const shuffledMainCards = shuffleArray(mainCards);
+  const shuffledDiffCards = shuffleArray(diffCards);
+
+  // Siapkan peran
   const roles: PlayerRole[] = [
     ...Array(civilianCount).fill('civilian'),
     ...Array(undercoverCount).fill('undercover'),
@@ -163,17 +152,47 @@ const assignRoles = (players: any[], category: string | null): Player[] => {
 
   const shuffledRoles = shuffleArray(roles);
 
-  return players.map((player, index) => ({
-    ...player,
-    role: shuffledRoles[index] || 'civilian',
-    word: shuffledRoles[index] === 'undercover' ? words.undercover : 
-          shuffledRoles[index] === 'mrwhite' ? '' : words.civilian,
-    hint: shuffledRoles[index] === 'mrwhite' ? 'Kamu tidak tahu kata rahasia!' : undefined,
-    category: selectedCategory,
-    is_alive: true,
-    has_seen_word: false,
-    vote_count: 0
-  }));
+  // Assign roles dan kata
+  let mainIndex = 0;
+  let diffIndex = 0;
+
+  const assignedPlayers = players.map((player, index) => {
+    const role = shuffledRoles[index] || 'civilian';
+    let word = '';
+    let hint = '';
+
+    if (role === 'civilian') {
+      word = shuffledMainCards[mainIndex]?.name || 'Unknown';
+      mainIndex = (mainIndex + 1) % shuffledMainCards.length;
+    } else if (role === 'undercover') {
+      word = shuffledDiffCards[diffIndex]?.name || 'Unknown';
+      diffIndex = (diffIndex + 1) % shuffledDiffCards.length;
+    } else if (role === 'mrwhite') {
+      word = '';
+      hint = 'Kamu tidak tahu kata rahasia! Dengarkan deskripsi pemain lain untuk menebak.';
+    }
+
+    return {
+      ...player,
+      role,
+      word,
+      hint,
+      themeId: selectedThemeId,
+      is_alive: true,
+      has_seen_word: false,
+      vote_count: 0
+    };
+  });
+
+  // Tentukan kata untuk Civilian dan Undercover (untuk referensi)
+  const civilianWord = shuffledMainCards[0]?.name || 'Unknown';
+  const undercoverWord = shuffledDiffCards[0]?.name || 'Unknown';
+
+  return {
+    players: assignedPlayers,
+    themeId: selectedThemeId,
+    themeName: selectedTheme.name
+  };
 };
 
 const getEliminatedPlayer = (players: Player[]): Player | null => {
@@ -275,7 +294,8 @@ export default function OfflineGame() {
     round: 1,
     civilianWord: '',
     undercoverWord: '',
-    category: '',
+    themeId: '',
+    themeName: '',
     eliminatedPlayer: null,
     winner: null,
     winReason: '',
@@ -292,38 +312,49 @@ export default function OfflineGame() {
   useEffect(() => {
     const storedData = sessionStorage.getItem('offlineGameData');
     if (!storedData) {
-      navigate('/offline/setup');
       navigate('/');
       return;
     }
 
-    const gameData = JSON.parse(storedData);
-    const category = gameData.category === 'random' ? null : gameData.category;
-    
-    // Assign roles to players
-    const playersWithRoles = assignRoles(gameData.players, category);
-    const shuffledPlayers = shuffleArray(playersWithRoles);
-    
-    // Get words from assigned players
-    const civilianPlayer = shuffledPlayers.find(p => p.role === 'civilian');
-    const undercoverPlayer = shuffledPlayers.find(p => p.role === 'undercover');
+    try {
+      const gameData = JSON.parse(storedData);
+      const themeId = gameData.themeId === 'random' ? null : gameData.themeId;
+      
+      // Assign roles to players
+      const result = assignRoles(gameData.players, themeId);
+      const shuffledPlayers = shuffleArray(result.players);
+      
+      // Dapatkan kata pertama untuk referensi
+      const civilianPlayer = shuffledPlayers.find(p => p.role === 'civilian');
+      const undercoverPlayer = shuffledPlayers.find(p => p.role === 'undercover');
 
-    setTimeout(() => {
-      setGameState({
-        phase: 'passDevice',
-        players: shuffledPlayers,
-        currentPlayerIndex: 0,
-        round: 1,
-        civilianWord: civilianPlayer?.word || '',
-        undercoverWord: undercoverPlayer?.word || '',
-        category: civilianPlayer?.category || '',
-        eliminatedPlayer: null,
-        winner: null,
-        winReason: '',
-        votingHistory: [],
-        chatMessages: []
-      });
-    }, 1500);
+      setTimeout(() => {
+        setGameState({
+          phase: 'passDevice',
+          players: shuffledPlayers,
+          currentPlayerIndex: 0,
+          round: 1,
+          civilianWord: civilianPlayer?.word || '',
+          undercoverWord: undercoverPlayer?.word || '',
+          themeId: result.themeId,
+          themeName: result.themeName,
+          eliminatedPlayer: null,
+          winner: null,
+          winReason: '',
+          votingHistory: [],
+          chatMessages: [{
+            id: '1',
+            playerId: 'system',
+            playerName: 'System',
+            message: `Tema permainan: ${result.themeName}`,
+            timestamp: new Date()
+          }]
+        });
+      }, 1500);
+    } catch (error) {
+      console.error('Error loading game data:', error);
+      navigate('/');
+    }
   }, [navigate]);
 
   // Auto-scroll chat to bottom
@@ -524,8 +555,8 @@ export default function OfflineGame() {
 
   // Restart game
   const restartGame = () => {
+    sessionStorage.removeItem('offlineGameData');
     navigate('/offline/setup');
-    navigate('/');
   };
 
   // Go home
@@ -599,7 +630,9 @@ export default function OfflineGame() {
             <h1 className="text-2xl font-bold text-gray-800">Med-Undercover</h1>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <span>Ronde {gameState.round}</span>
-              <span>Kategori: {gameState.category}</span>
+              <Badge className="bg-emerald-100 text-emerald-700 border-0">
+                {gameState.themeName}
+              </Badge>
             </div>
           </div>
 
@@ -905,6 +938,12 @@ export default function OfflineGame() {
                           </div>
                         </div>
                       </div>
+
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-emerald-700 text-sm">
+                          <span className="font-bold">Tema:</span> {gameState.themeName}
+                        </p>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -1104,6 +1143,9 @@ export default function OfflineGame() {
                               <p className="font-bold text-xl">{gameState.undercoverWord}</p>
                             </div>
                           </div>
+                          <p className="text-xs text-white/70 mt-2">
+                            Tema: {gameState.themeName}
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
@@ -1315,6 +1357,3 @@ export default function OfflineGame() {
     </div>
   );
 }
-
-// Missing imports
-import { Check, Send } from 'lucide-react';
