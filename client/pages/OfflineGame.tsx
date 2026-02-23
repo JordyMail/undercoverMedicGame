@@ -845,55 +845,104 @@ export default function OfflineGame() {
   };
 
   // Handle vote submission
-  const handleVote = (targetId: string) => {
-    const alivePlayers = gameState.players.filter(p => p.is_alive);
-    const currentVoter = alivePlayers[gameState.currentPlayerIndex];
-    const target = gameState.players.find(p => p.id === targetId);
-    
-    if (!currentVoter || !target) return;
+const handleVote = (targetId: string) => {
+  const alivePlayers = gameState.players.filter(p => p.is_alive);
+  const currentVoter = alivePlayers[gameState.currentPlayerIndex];
+  const target = gameState.players.find(p => p.id === targetId);
+  
+  if (!currentVoter || !target) return;
 
-    const voteRecord: VoteRecord = {
-      round: gameState.round,
-      voterId: currentVoter.id,
-      targetId: targetId,
-      voterRole: currentVoter.role,
-      targetRole: target.role
-    };
+  const voteRecord: VoteRecord = {
+    round: gameState.round,
+    voterId: currentVoter.id,
+    targetId: targetId,
+    voterRole: currentVoter.role,
+    targetRole: target.role
+  };
+  
+  const updatedPlayers = gameState.players.map(p => 
+    p.id === targetId ? { ...p, vote_count: (p.vote_count || 0) + 1 } : p
+  );
+  
+  const nextVoter = gameState.currentPlayerIndex + 1;
+  const updatedAlivePlayers = updatedPlayers.filter(p => p.is_alive);
+  
+  if (nextVoter >= updatedAlivePlayers.length) {
+    const eliminated = getEliminatedPlayer(updatedPlayers);
     
-    const updatedPlayers = gameState.players.map(p => 
-      p.id === targetId ? { ...p, vote_count: (p.vote_count || 0) + 1 } : p
-    );
-    
-    const nextVoter = gameState.currentPlayerIndex + 1;
-    const updatedAlivePlayers = updatedPlayers.filter(p => p.is_alive);
-    
-    if (nextVoter >= updatedAlivePlayers.length) {
-      const eliminated = getEliminatedPlayer(updatedPlayers);
-      
-      if (eliminated) {
-        setGameState({
-          ...gameState,
-          players: updatedPlayers.map(p => 
-            p.id === eliminated.id ? { ...p, is_alive: false } : p
-          ),
-          phase: 'elimination',
-          eliminatedPlayer: eliminated,
-          votingHistory: [...gameState.votingHistory, { 
-            ...voteRecord, 
-            eliminatedId: eliminated.id, 
-            eliminatedRole: eliminated.role 
-          }]
-        });
-      }
-    } else {
-      setGameState({
-        ...gameState,
+    if (eliminated) {
+      // Tampilkan dialog konfirmasi eliminasi
+      setShowEliminationConfirm(true);
+      setPendingElimination({
         players: updatedPlayers,
-        currentPlayerIndex: nextVoter,
-        votingHistory: [...gameState.votingHistory, voteRecord]
+        eliminated,
+        voteRecord,
+        targetId
       });
     }
-  };
+  } else {
+    setGameState({
+      ...gameState,
+      players: updatedPlayers,
+      currentPlayerIndex: nextVoter,
+      votingHistory: [...gameState.votingHistory, voteRecord]
+    });
+  }
+};
+
+// State untuk konfirmasi eliminasi
+const [showEliminationConfirm, setShowEliminationConfirm] = useState(false);
+const [pendingElimination, setPendingElimination] = useState<{
+  players: Player[];
+  eliminated: Player;
+  voteRecord: VoteRecord;
+  targetId: string;
+} | null>(null);
+
+
+// Handle konfirmasi eliminasi
+const handleConfirmElimination = () => {
+  if (!pendingElimination) return;
+  
+  const { players, eliminated, voteRecord, targetId } = pendingElimination;
+  
+  setGameState({
+    ...gameState,
+    players: players.map(p => 
+      p.id === eliminated.id ? { ...p, is_alive: false } : p
+    ),
+    phase: 'elimination',
+    eliminatedPlayer: eliminated,
+    votingHistory: [...gameState.votingHistory, { 
+      ...voteRecord, 
+      eliminatedId: eliminated.id, 
+      eliminatedRole: eliminated.role 
+    }]
+  });
+  
+  setShowEliminationConfirm(false);
+  setPendingElimination(null);
+};
+
+// Handle vote ulang
+const handleRevote = () => {
+  if (!pendingElimination) return;
+  
+  const { players } = pendingElimination;
+  
+  // Reset vote counts untuk semua pemain
+  const resetPlayers = players.map(p => ({ ...p, vote_count: 0 }));
+  
+  setGameState({
+    ...gameState,
+    players: resetPlayers,
+    phase: 'voting',
+    currentPlayerIndex: 0
+  });
+  
+  setShowEliminationConfirm(false);
+  setPendingElimination(null);
+};
 
   // Handle Mr. White guess
   const handleMrWhiteGuess = () => {
@@ -1672,7 +1721,7 @@ export default function OfflineGame() {
                         className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
                       >
                         <RotateCcw className="mr-2 h-4 w-4" />
-                        Main Lagi
+                        Game Baru
                       </Button>
                       <Button
                         variant="outline"
@@ -1774,6 +1823,62 @@ export default function OfflineGame() {
             </div>
           </div>
         )}
+        {/* Elimination Confirmation Modal */}
+{showEliminationConfirm && pendingElimination && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center animate-in fade-in duration-300">
+      <div className="mb-6">
+        <div className="bg-red-100 p-4 rounded-full w-fit mx-auto mb-4">
+          <AlertTriangle className="h-12 w-12 text-red-500" />
+        </div>
+
+        <h3 className="text-2xl font-bold mb-2 text-red-600">Konfirmasi Eliminasi</h3>
+
+        <p className="text-gray-700 mb-2">
+          Pemain <span className="font-bold text-red-600">{pendingElimination.eliminated.name}</span> akan tereliminasi!
+        </p>
+        
+        <div className="bg-gray-50 rounded-lg p-3 mb-4">
+          <p className="text-sm text-gray-600">
+            Total suara: <span className="font-bold">{pendingElimination.eliminated.vote_count}</span>
+          </p>
+        </div>
+
+        <p className="text-gray-500 mb-2">
+          Apakah Anda yakin ingin mengeliminasi pemain ini?
+        </p>
+      </div>
+
+      <div className="flex space-x-3">
+        <Button
+          onClick={handleRevote}
+          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Vote Ulang
+        </Button>
+
+        <Button
+          onClick={handleConfirmElimination}
+          className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+        >
+          <Skull className="h-4 w-4 mr-2" />
+          Eliminasi
+        </Button>
+      </div>
+      
+      <button
+        onClick={() => {
+          setShowEliminationConfirm(false);
+          setPendingElimination(null);
+        }}
+        className="mt-4 text-sm text-gray-500 hover:text-gray-700 underline"
+      >
+        Batal
+      </button>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );
