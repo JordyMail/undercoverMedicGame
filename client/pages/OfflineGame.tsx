@@ -1156,96 +1156,97 @@ export default function OfflineGame() {
               )}
 
               {/* Elimination Phase */}
-              {gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
-                <motion.div
-                  key="elimination"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <Card className="border-0 shadow-lg overflow-hidden">
-                    <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
-                    <CardContent className="p-8 text-center">
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", delay: 0.2 }}
-                        className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
-                      >
-                        <Skull className="h-12 w-12 text-red-500" />
-                      </motion.div>
+{gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
+  <motion.div
+    key="elimination"
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    exit={{ opacity: 0, scale: 0.9 }}
+  >
+    <Card className="border-0 shadow-lg overflow-hidden">
+      <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
+      <CardContent className="p-8 text-center">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+        >
+          <Skull className="h-12 w-12 text-red-500" />
+        </motion.div>
 
-                      <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
-                      <p className="text-gray-500 mb-6">
-                        {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
-                      </p>
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
+        <p className="text-gray-500 mb-6">
+          {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
+        </p>
 
-                      <div className={cn(
-                        "p-6 rounded-xl mb-6",
-                        gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
-                        gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
-                      )}>
-                        <div className="flex items-center justify-center space-x-3 mb-3">
-                          <span className="text-2xl">
-                            {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
-                             gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
-                          </span>
-                          <span className={cn(
-                            "text-xl font-bold",
-                            gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
-                            gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
-                          )}>
-                            {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
-                            {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
-                            {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
-                          </span>
-                        </div>
+        <div className={cn(
+          "p-6 rounded-xl mb-6",
+          gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
+          gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
+        )}>
+          <div className="flex items-center justify-center space-x-3 mb-3">
+            <span className="text-2xl">
+              {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
+               gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
+            </span>
+            <span className={cn(
+              "text-xl font-bold",
+              gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
+              gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
+            )}>
+              {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
+              {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
+              {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
+            </span>
+          </div>
 
-                        {gameState.eliminatedPlayer.role !== 'mrwhite' && (
-                          <p className="text-gray-600">
-                            Kata rahasia: <strong>{gameState.eliminatedPlayer.word}</strong>
-                          </p>
-                        )}
-                      </div>
+          {/* HAPUS BAGIAN INI - JANGAN TAMPILKAN KATA RAHASIA UNTUK SIAPAPUN */}
+          {/* {gameState.eliminatedPlayer.role !== 'mrwhite' && (
+            <p className="text-gray-600">
+              Kata rahasia: <strong>{gameState.eliminatedPlayer.word}</strong>
+            </p>
+          )} */}
+        </div>
 
-                      {gameState.eliminatedPlayer.role === 'mrwhite' && (
-                        <div className="space-y-4 mb-6">
-                          <p className="text-gray-600">
-                            Mr. White punya kesempatan untuk menebak kata Civilian!
-                          </p>
-                          <div className="flex gap-2 max-w-md mx-auto">
-                            <Input
-                              placeholder="Masukkan tebakanmu..."
-                              value={mrWhiteGuess}
-                              onChange={(e) => setMrWhiteGuess(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
-                              className="flex-1"
-                            />
-                            <Button
-                              onClick={handleMrWhiteGuess}
-                              disabled={!mrWhiteGuess.trim()}
-                              className="bg-purple-500 hover:bg-purple-600"
-                            >
-                              Tebak
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+        {gameState.eliminatedPlayer.role === 'mrwhite' && (
+          <div className="space-y-4 mb-6">
+            <p className="text-gray-600">
+              Mr. White punya kesempatan untuk menebak kata Civilian!
+            </p>
+            <div className="flex gap-2 max-w-md mx-auto">
+              <Input
+                placeholder="Masukkan tebakanmu..."
+                value={mrWhiteGuess}
+                onChange={(e) => setMrWhiteGuess(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleMrWhiteGuess}
+                disabled={!mrWhiteGuess.trim()}
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                Tebak
+              </Button>
+            </div>
+          </div>
+        )}
 
-                      {gameState.eliminatedPlayer.role !== 'mrwhite' && (
-                        <Button
-                          size="lg"
-                          onClick={checkGameEnd}
-                          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
-                        >
-                          <ChevronRight className="mr-2 h-5 w-5" />
-                          Lanjutkan Permainan
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
+        {gameState.eliminatedPlayer.role !== 'mrwhite' && (
+          <Button
+            size="lg"
+            onClick={checkGameEnd}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
+          >
+            <ChevronRight className="mr-2 h-5 w-5" />
+            Lanjutkan Permainan
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  </motion.div>
+)}
 
               {/* Finished Phase */}
               {gameState.phase === 'finished' && (() => {
