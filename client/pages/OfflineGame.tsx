@@ -741,6 +741,7 @@ export default function OfflineGame() {
   const [mrWhiteGuess, setMrWhiteGuess] = useState('');
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
+  const [statsSaved, setStatsSaved] = useState(false);
 
   // Load game data
   useEffect(() => {
@@ -803,35 +804,35 @@ export default function OfflineGame() {
   }, [gameState.chatMessages]);
 
 
-  // Di bagian useEffect atau di tempat yang sesuai, setelah game selesai
-useEffect(() => {
-  if (gameState.phase === 'finished' && gameState.winner) {
-    // Update stats when game finishes
-    const gameResult = {
-      winner: gameState.winner,
-      winReason: gameState.winReason,
-      finalRound: gameState.round
-    };
-    
-    const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
-    
-    scoredPlayers.forEach(playerScore => {
-      const player = gameState.players.find(p => p.id === playerScore.playerId);
-      if (player) {
-        const isWinner = gameState.winner === player.role;
-        playerStats.updatePlayerStats(
-          player.id,
-          player.name,
-          player.avatar_id,
-          playerScore.totalScore,
-          player.role,
-          isWinner ? 'win' : 'lose',
-          gameState.themeName
-        );
-      }
-    });
-  }
-}, [gameState.phase, gameState.winner]);
+  useEffect(() => {
+    if (gameState.phase === 'finished' && gameState.winner && !statsSaved) {
+      const gameResult = {
+        winner: gameState.winner,
+        winReason: gameState.winReason,
+        finalRound: gameState.round
+      };
+      
+      const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+      
+      scoredPlayers.forEach(playerScore => {
+        const player = gameState.players.find(p => p.id === playerScore.playerId);
+        if (player) {
+          const isWinner = gameState.winner === player.role;
+          playerStats.updatePlayerStats(
+            player.id,
+            player.name,
+            player.avatar_id,
+            playerScore.totalScore,
+            player.role,
+            isWinner ? 'win' : 'lose',
+            gameState.themeName
+          );
+        }
+      });
+      
+      setStatsSaved(true); // Tandai bahwa stats sudah disimpan
+    }
+  }, [gameState.phase, gameState.winner, statsSaved]);
 
   // Handle ready to see card
   const handleReadyToSee = () => {
@@ -865,54 +866,31 @@ useEffect(() => {
     }
   };
 
-  // Fungsi untuk handle tombol "Main Lagi"
+
+// Fungsi untuk handle tombol "Main Lagi"
 const handlePlayAgain = () => {
-  // 1. Update stats untuk semua pemain sebelum pindah
-  const gameResult = {
-    winner: gameState.winner,
-    winReason: gameState.winReason,
-    finalRound: gameState.round
+    // Ambil data pemain dengan stats yang sudah ada (termasuk yang baru saja disimpan)
+    const playersForNextGame = gameState.players.map(p => {
+      const stats = playerStats.getPlayerStats(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        avatar_id: p.avatar_id,
+        totalScore: stats?.totalScore || 0
+      };
+    });
+
+    // Simpan ke sessionStorage untuk digunakan di setup
+    sessionStorage.setItem('playAgainPlayers', JSON.stringify(playersForNextGame));
+    
+    // Navigasi ke halaman setup
+    navigate('/offline/setup', { 
+      state: { 
+        playAgain: true,
+        existingPlayers: playersForNextGame 
+      } 
+    });
   };
-  
-  const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
-  
-  // Update stats untuk setiap pemain
-  scoredPlayers.forEach(playerScore => {
-    const player = gameState.players.find(p => p.id === playerScore.playerId);
-    if (player) {
-      const isWinner = gameState.winner === player.role;
-      playerStats.updatePlayerStats(
-        player.id,
-        player.name,
-        player.avatar_id,
-        playerScore.totalScore,
-        player.role,
-        isWinner ? 'win' : 'lose',
-        gameState.themeName
-      );
-    }
-  });
-
-  // 2. Simpan data pemain yang akan digunakan lagi di setup
-  const playersForNextGame = gameState.players.map(p => ({
-    id: p.id,
-    name: p.name,
-    avatar_id: p.avatar_id,
-    // Tambahkan skor total dari stats
-    totalScore: playerStats.getPlayerStats(p.id)?.totalScore || 0
-  }));
-
-  // 3. Simpan ke sessionStorage untuk digunakan di setup
-  sessionStorage.setItem('playAgainPlayers', JSON.stringify(playersForNextGame));
-  
-  // 4. Navigasi ke halaman setup
-  navigate('/offline/setup', { 
-    state: { 
-      playAgain: true,
-      existingPlayers: playersForNextGame 
-    } 
-  });
-};
 
   // Start voting phase
   const startVoting = () => {
@@ -1647,183 +1625,221 @@ const handleRevote = () => {
                 </motion.div>
               )}
 
-              {/* Finished Phase */}
-              {gameState.phase === 'finished' && (() => {
-                const gameResult: GameResult = {
-                  winner: gameState.winner,
-                  winReason: gameState.winReason,
-                  finalRound: gameState.round
+             {/* Finished Phase */}
+{gameState.phase === 'finished' && (() => {
+  const gameResult: GameResult = {
+    winner: gameState.winner,
+    winReason: gameState.winReason,
+    finalRound: gameState.round
+  };
+  
+  const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+  
+// Hitung total skor kumulatif dengan mengambil dari playerStats
+const playersWithCumulativeScore = scoredPlayers.map(playerScore => {
+  const player = gameState.players.find(p => p.id === playerScore.playerId);
+  const stats = player ? playerStats.getPlayerStats(player.id) : null;
+  
+  // PERBAIKAN: cumulativeScore adalah stats.totalScore (sudah termasuk game ini)
+  // karena stats sudah diupdate di handlePlayAgain nanti
+  return {
+    ...playerScore,
+    cumulativeScore: stats?.totalScore || playerScore.totalScore,
+    previousScore: stats ? stats.totalScore - playerScore.totalScore : 0,
+    gameScore: playerScore.totalScore
+  };
+});
+
+  return (
+    <motion.div
+      key="finished"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+    >
+      <Card className={cn(
+        "border-0 shadow-xl overflow-hidden mb-6",
+        gameState.winner === 'civilian' ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
+        gameState.winner === 'undercover' ? "bg-gradient-to-br from-red-500 to-orange-500" :
+        "bg-gradient-to-br from-purple-500 to-pink-500"
+      )}>
+        <CardContent className="p-8 text-center text-white">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", delay: 0.2 }}
+            className="text-6xl mb-4"
+          >
+            🏆
+          </motion.div>
+          <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
+          <div className="inline-block px-6 py-2 bg-white/20 rounded-full font-bold text-lg mb-4">
+            {gameState.winner === 'civilian' && '🏥 Civilian Menang!'}
+            {gameState.winner === 'undercover' && '🕵️ Undercover Menang!'}
+            {gameState.winner === 'mrwhite' && '👻 Mr. White Menang!'}
+          </div>
+          <p className="text-white/90 mb-6">{gameState.winReason}</p>
+
+          <div className="bg-white/10 rounded-xl p-4 mb-4">
+            <p className="text-sm text-white/80 mb-2">Kata dalam permainan:</p>
+            <div className="flex justify-center gap-6">
+              <div className="text-center">
+                <p className="text-xs text-white/70">Civilian</p>
+                <p className="font-bold text-xl">{gameState.civilianWord}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-white/70">Undercover</p>
+                <p className="font-bold text-xl">{gameState.undercoverWord}</p>
+              </div>
+            </div>
+            <p className="text-xs text-white/70 mt-2">
+              Tema: {gameState.themeName}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-0 shadow-lg mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-amber-500" />
+              Leaderboard & Skor Akhir
+            </h2>
+            <Badge className="bg-amber-100 text-amber-700 border-0 px-3 py-1">
+              <Sparkles className="h-4 w-4 mr-1" />
+              Total Skor Kumulatif
+            </Badge>
+          </div>
+
+          <div className="space-y-3">
+            {playersWithCumulativeScore
+              .sort((a, b) => b.cumulativeScore - a.cumulativeScore)
+              .map((playerScore, index) => {
+                const player = gameState.players.find(p => p.id === playerScore.playerId)!;
+                const roleColors = {
+                  civilian: 'border-blue-200 bg-blue-50',
+                  undercover: 'border-red-200 bg-red-50',
+                  mrwhite: 'border-purple-200 bg-purple-50'
                 };
-                
-                const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
                 
                 return (
                   <motion.div
-                    key="finished"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    key={player.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={cn(
+                      'border-2 rounded-xl p-4',
+                      roleColors[player.role as keyof typeof roleColors] || 'border-gray-200 bg-white',
+                      index === 0 && 'ring-4 ring-amber-400 shadow-lg'
+                    )}
                   >
-                    <Card className={cn(
-                      "border-0 shadow-xl overflow-hidden mb-6",
-                      gameState.winner === 'civilian' ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
-                      gameState.winner === 'undercover' ? "bg-gradient-to-br from-red-500 to-orange-500" :
-                      "bg-gradient-to-br from-purple-500 to-pink-500"
-                    )}>
-                      <CardContent className="p-8 text-center text-white">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", delay: 0.2 }}
-                          className="text-6xl mb-4"
-                        >
-                          🏆
-                        </motion.div>
-                        <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
-                        <div className="inline-block px-6 py-2 bg-white/20 rounded-full font-bold text-lg mb-4">
-                          {gameState.winner === 'civilian' && '🏥 Civilian Menang!'}
-                          {gameState.winner === 'undercover' && '🕵️ Undercover Menang!'}
-                          {gameState.winner === 'mrwhite' && '👻 Mr. White Menang!'}
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        'w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0',
+                        index === 0 && 'bg-amber-400 text-white',
+                        index === 1 && 'bg-gray-300 text-gray-700',
+                        index === 2 && 'bg-orange-400 text-white',
+                        index > 2 && 'bg-gray-200 text-gray-600'
+                      )}>
+                        {index === 0 ? '👑' : index + 1}
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-2xl">{getAvatarIcon(player.avatar_id)}</span>
+                          <span className="font-bold text-gray-800">{player.name}</span>
+                          <Badge className={cn(
+                            player.role === 'civilian' ? "bg-blue-100 text-blue-700" :
+                            player.role === 'undercover' ? "bg-red-100 text-red-700" :
+                            "bg-purple-100 text-purple-700"
+                          )}>
+                            {player.role === 'civilian' && 'Civilian'}
+                            {player.role === 'undercover' && 'Undercover'}
+                            {player.role === 'mrwhite' && 'Mr. White'}
+                          </Badge>
+                          {!player.is_alive && (
+                            <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                              Tereliminasi
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-white/90 mb-6">{gameState.winReason}</p>
-
-                        <div className="bg-white/10 rounded-xl p-4 mb-4">
-                          <p className="text-sm text-white/80 mb-2">Kata dalam permainan:</p>
-                          <div className="flex justify-center gap-6">
-                            <div className="text-center">
-                              <p className="text-xs text-white/70">Civilian</p>
-                              <p className="font-bold text-xl">{gameState.civilianWord}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-white/70">Undercover</p>
-                              <p className="font-bold text-xl">{gameState.undercoverWord}</p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-white/70 mt-2">
-                            Tema: {gameState.themeName}
-                          </p>
+                        
+                        <div className="flex flex-wrap gap-1 text-xs mt-2">
+                          {playerScore.breakdown.map((item, i) => (
+                            <span
+                              key={i}
+                              className={cn(
+                                'px-2 py-0.5 rounded-full',
+                                item.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              )}
+                            >
+                              {item.description}: {item.points > 0 ? '+' : ''}{item.points}
+                            </span>
+                          ))}
                         </div>
-                      </CardContent>
-                    </Card>
 
-                    <Card className="border-0 shadow-lg mb-6">
-                      <CardContent className="p-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                          <Trophy className="h-6 w-6 text-amber-500" />
-                          Leaderboard & Skor Akhir
-                        </h2>
-                        <div className="space-y-3">
-                          {scoredPlayers.map((playerScore, index) => {
-                            const player = gameState.players.find(p => p.id === playerScore.playerId)!;
-                            const roleColors = {
-                              civilian: 'border-blue-200 bg-blue-50',
-                              undercover: 'border-red-200 bg-red-50',
-                              mrwhite: 'border-purple-200 bg-purple-50'
-                            };
-                            
-                            return (
-                              <motion.div
-                                key={player.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className={cn(
-                                  'border-2 rounded-xl p-4',
-                                  roleColors[player.role as keyof typeof roleColors] || 'border-gray-200 bg-white',
-                                  index === 0 && 'ring-4 ring-amber-400 shadow-lg'
-                                )}
-                              >
-                                <div className="flex items-center gap-4">
-                                  <div className={cn(
-                                    'w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0',
-                                    index === 0 && 'bg-amber-400 text-white',
-                                    index === 1 && 'bg-gray-300 text-gray-700',
-                                    index === 2 && 'bg-orange-400 text-white',
-                                    index > 2 && 'bg-gray-200 text-gray-600'
-                                  )}>
-                                    {index === 0 ? '👑' : index + 1}
-                                  </div>
-
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-2xl">{getAvatarIcon(player.avatar_id)}</span>
-                                      <span className="font-bold text-gray-800">{player.name}</span>
-                                      <Badge className={cn(
-                                        player.role === 'civilian' ? "bg-blue-100 text-blue-700" :
-                                        player.role === 'undercover' ? "bg-red-100 text-red-700" :
-                                        "bg-purple-100 text-purple-700"
-                                      )}>
-                                        {player.role === 'civilian' && 'Civilian'}
-                                        {player.role === 'undercover' && 'Undercover'}
-                                        {player.role === 'mrwhite' && 'Mr. White'}
-                                      </Badge>
-                                      {!player.is_alive && (
-                                        <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                                          Tereliminasi
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="flex flex-wrap gap-1 text-xs mt-2">
-                                      {playerScore.breakdown.map((item, i) => (
-                                        <span
-                                          key={i}
-                                          className={cn(
-                                            'px-2 py-0.5 rounded-full',
-                                            item.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                          )}
-                                        >
-                                          {item.description}: {item.points > 0 ? '+' : ''}{item.points}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  <div className="text-center flex-shrink-0">
-                                    <div className={cn(
-                                      'text-3xl font-bold',
-                                      index === 0 ? 'text-amber-500' : 'text-gray-700'
-                                    )}>
-                                      {playerScore.totalScore}
-                                    </div>
-                                    <div className="text-xs text-gray-500">Poin</div>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          })}
+                        {/* Informasi skor */}
+                        <div className="flex gap-3 mt-2 text-xs">
+                          <span className="text-emerald-600">
+                            Skor Game Ini: +{playerScore.gameScore}
+                          </span>
+                          {playerScore.previousScore > 0 && (
+                            <span className="text-blue-600">
+                              Skor Sebelumnya: {playerScore.previousScore}
+                            </span>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
 
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        variant="outline"
-                        onClick={restartGame}
-                        className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Game Baru
-                      </Button>
-                      {/* TOMBOL MAIN LAGI - BARU */}
-                      <Button
-                        onClick={handlePlayAgain}
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Main Lagi
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={goHome}
-                        className="border-gray-500 text-gray-600 hover:bg-gray-50"
-                      >
-                        <Home className="mr-2 h-4 w-4" />
-                        Ke Beranda
-                      </Button>
+                      <div className="text-center flex-shrink-0">
+                        <div className={cn(
+                          'text-3xl font-bold',
+                          index === 0 ? 'text-amber-500' : 'text-gray-700'
+                        )}>
+                          {playerScore.cumulativeScore}
+                        </div>
+                        <div className="text-xs text-gray-500">Total Skor</div>
+                      </div>
                     </div>
                   </motion.div>
                 );
-              })()}
+              })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-3 justify-center flex-wrap">
+        <Button
+          variant="outline"
+          onClick={restartGame}
+          className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Game Baru
+        </Button>
+        
+        {/* TOMBOL MAIN LAGI */}
+        <Button
+          onClick={handlePlayAgain}
+          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Main Lagi
+        </Button>
+        
+        <Button
+          variant="outline"
+          onClick={goHome}
+          className="border-gray-500 text-gray-600 hover:bg-gray-50"
+        >
+          <Home className="mr-2 h-4 w-4" />
+          Ke Beranda
+        </Button>
+      </div>
+    </motion.div>
+  );
+})()}
             </AnimatePresence>
 
             {/* Chat */}
