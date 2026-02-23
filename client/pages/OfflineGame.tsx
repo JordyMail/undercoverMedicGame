@@ -27,7 +27,8 @@ import {
   LogOut,
   Sparkles,
   Check,
-  Send
+  Send,
+  Settings
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { MEDICAL_THEMES, generateDiseaseCards, DiseaseCard } from '../../shared/medicalData';
@@ -64,6 +65,12 @@ interface VoteRecord {
   eliminatedRole?: PlayerRole;
 }
 
+interface RoleDistribution {
+  civilian: number;
+  undercover: number;
+  mrwhite: number;
+}
+
 interface GameState {
   phase: GamePhase;
   players: Player[];
@@ -84,6 +91,7 @@ interface GameState {
     message: string;
     timestamp: Date;
   }[];
+  roleDistribution?: RoleDistribution; // Tambahkan role distribution
 }
 
 // Mock avatars
@@ -97,7 +105,24 @@ const AVATARS = [
   { id: 7, icon: '🚑', name: 'Paramedis' },
   { id: 8, icon: '🧬', name: 'Ahli Genetika' },
   { id: 9, icon: '🧪', name: 'Laboran' },
-  { id: 10, icon: '📊', name: 'Epidemiolog' }
+  { id: 10, icon: '📊', name: 'Epidemiolog' },
+  { id: 11, icon: '🦠', name: 'Virus' },
+  { id: 12, icon: '⚕️', name: 'Simbol Kesehatan' },
+  { id: 13, icon: '🌡️', name: 'Termometer' },
+  { id: 14, icon: '🩹', name: 'Plester' },
+  { id: 15, icon: '🧠', name: 'Otak' },
+  { id: 16, icon: '🫀', name: 'Jantung' },
+  { id: 17, icon: '🫁', name: 'Paru-paru' },
+  { id: 18, icon: '🦴', name: 'Tulang' },
+  { id: 19, icon: '🩸', name: 'Darah' },
+  { id: 20, icon: '💉', name: 'Suntikan' },
+  { id: 21, icon: '🤒', name: 'Pasien Sakit' },
+  { id: 22, icon: '🤕', name: 'Pasien Terluka' },
+  { id: 23, icon: '😷', name: 'Pasien dengan Masker' },
+  { id: 24, icon: '🤢', name: 'Pasien Mual' },
+  { id: 25, icon: '🤧', name: 'Pasien Bersin' },
+  { id: 26, icon: '🧼', name: 'Sabun' },
+  { id: 27, icon: '🦷', name: 'Gigi' }
 ];
 
 // Utility functions
@@ -110,11 +135,40 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-const assignRoles = (players: any[], themeId: string | null): { players: Player[], themeId: string, themeName: string } => {
+const assignRoles = (
+  players: any[], 
+  themeId: string | null,
+  customRoleDistribution?: RoleDistribution // Tambahkan parameter custom role distribution
+): { players: Player[], themeId: string, themeName: string } => {
   const totalPlayers = players.length;
-  const undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
-  const mrwhiteCount = Math.max(0, Math.floor(totalPlayers * 0.1));
-  const civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
+  
+  // Gunakan custom role distribution jika ada, jika tidak hitung otomatis
+  let undercoverCount: number, mrwhiteCount: number, civilianCount: number;
+  
+  if (customRoleDistribution) {
+    civilianCount = customRoleDistribution.civilian;
+    undercoverCount = customRoleDistribution.undercover;
+    mrwhiteCount = customRoleDistribution.mrwhite;
+    
+    // Validasi tambahan untuk keamanan
+    if (civilianCount + undercoverCount + mrwhiteCount !== totalPlayers) {
+      console.warn('Custom role distribution total mismatch, using auto calculation');
+      undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
+      mrwhiteCount = totalPlayers >= 6 ? Math.floor(totalPlayers * 0.1) : 0;
+      civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
+    }
+  } else {
+    // Auto calculation
+    undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.3));
+    mrwhiteCount = totalPlayers >= 6 ? Math.floor(totalPlayers * 0.1) : 0;
+    
+    if (undercoverCount + mrwhiteCount >= totalPlayers) {
+      undercoverCount = Math.max(1, Math.floor(totalPlayers * 0.25));
+      mrwhiteCount = totalPlayers >= 8 ? 1 : 0;
+    }
+    
+    civilianCount = totalPlayers - undercoverCount - mrwhiteCount;
+  }
 
   // Pilih tema
   let selectedThemeId = themeId;
@@ -143,7 +197,7 @@ const assignRoles = (players: any[], themeId: string | null): { players: Player[
   const shuffledMainCards = shuffleArray(mainCards);
   const shuffledDiffCards = shuffleArray(diffCards);
 
-  // Siapkan peran
+  // Siapkan peran sesuai distribusi yang ditentukan
   const roles: PlayerRole[] = [
     ...Array(civilianCount).fill('civilian'),
     ...Array(undercoverCount).fill('undercover'),
@@ -320,13 +374,25 @@ export default function OfflineGame() {
       const gameData = JSON.parse(storedData);
       const themeId = gameData.themeId === 'random' ? null : gameData.themeId;
       
-      // Assign roles to players
-      const result = assignRoles(gameData.players, themeId);
+      // Assign roles to players dengan custom role distribution jika ada
+      const result = assignRoles(
+        gameData.players, 
+        themeId,
+        gameData.roleDistribution // Pass custom role distribution dari setup
+      );
+      
       const shuffledPlayers = shuffleArray(result.players);
       
       // Dapatkan kata pertama untuk referensi
       const civilianPlayer = shuffledPlayers.find(p => p.role === 'civilian');
       const undercoverPlayer = shuffledPlayers.find(p => p.role === 'undercover');
+
+      // Catat distribusi role di chat
+      const roleCounts = {
+        civilian: shuffledPlayers.filter(p => p.role === 'civilian').length,
+        undercover: shuffledPlayers.filter(p => p.role === 'undercover').length,
+        mrwhite: shuffledPlayers.filter(p => p.role === 'mrwhite').length
+      };
 
       setTimeout(() => {
         setGameState({
@@ -342,13 +408,30 @@ export default function OfflineGame() {
           winner: null,
           winReason: '',
           votingHistory: [],
-          chatMessages: [{
-            id: '1',
-            playerId: 'system',
-            playerName: 'System',
-            message: `Tema permainan: ${result.themeName}`,
-            timestamp: new Date()
-          }]
+          chatMessages: [
+            {
+              id: '1',
+              playerId: 'system',
+              playerName: 'System',
+              message: `Tema permainan: ${result.themeName}`,
+              timestamp: new Date()
+            },
+            {
+              id: '2',
+              playerId: 'system',
+              playerName: 'System',
+              message: `Distribusi peran: 🏥 ${roleCounts.civilian} Civilian, 🕵️ ${roleCounts.undercover} Undercover, 👻 ${roleCounts.mrwhite} Mr. White`,
+              timestamp: new Date()
+            },
+            {
+              id: '3',
+              playerId: 'system',
+              playerName: 'System',
+              message: gameData.roleDistribution ? '⚙️ Menggunakan custom role distribution' : '🎲 Menggunakan distribusi otomatis',
+              timestamp: new Date()
+            }
+          ],
+          roleDistribution: gameData.roleDistribution // Simpan role distribution di state
         });
       }, 1500);
     } catch (error) {
@@ -633,6 +716,12 @@ export default function OfflineGame() {
               <Badge className="bg-emerald-100 text-emerald-700 border-0">
                 {gameState.themeName}
               </Badge>
+              {gameState.roleDistribution && (
+                <Badge className="bg-amber-100 text-amber-700 border-0">
+                  <Settings className="h-3 w-3 mr-1" />
+                  Custom Roles
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -748,6 +837,13 @@ export default function OfflineGame() {
                       <span className="text-purple-600">👻 Mr. White:</span>
                       <span className="font-medium">{gameState.players.filter(p => p.role === 'mrwhite' && p.is_alive).length}</span>
                     </div>
+                    {gameState.roleDistribution && (
+                      <div className="mt-2 pt-2 border-t border-emerald-200">
+                        <p className="text-xs text-emerald-600">
+                          ⚙️ Custom distribution dari setup
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

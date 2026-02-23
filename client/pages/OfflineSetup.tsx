@@ -19,7 +19,9 @@ import {
   Sparkles,
   AlertCircle,
   Check,
-  Loader2
+  Loader2,
+  Sliders,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { MEDICAL_THEMES, MedicalTheme } from '../../shared/medicalData';
@@ -29,6 +31,17 @@ interface Player {
   id: string;
   name: string;
   avatar_id: number;
+}
+
+interface RoleDistribution {
+  civilian: number;
+  undercover: number;
+  mrwhite: number;
+}
+
+interface CustomRoleConfig {
+  enabled: boolean;
+  distribution: RoleDistribution;
 }
 
 // Mock avatars
@@ -42,7 +55,30 @@ const AVATARS = [
   { id: 7, icon: '🚑', name: 'Paramedis' },
   { id: 8, icon: '🧬', name: 'Ahli Genetika' },
   { id: 9, icon: '🧪', name: 'Laboran' },
-  { id: 10, icon: '📊', name: 'Epidemiolog' }
+  { id: 10, icon: '📊', name: 'Epidemiolog' },
+  { id: 11, icon: '🦠', name: 'Virus' },
+  { id: 12, icon: '⚕️', name: 'Simbol Kesehatan' },
+  { id: 13, icon: '🌡️', name: 'Termometer' },
+  { id: 14, icon: '🩹', name: 'Plester' },
+  { id: 15, icon: '🧠', name: 'Otak' },
+  { id: 16, icon: '🫀', name: 'Jantung' },
+  { id: 17, icon: '🫁', name: 'Paru-paru' },
+  { id: 18, icon: '🦴', name: 'Tulang' },
+  { id: 19, icon: '🩸', name: 'Darah' },
+  { id: 20, icon: '💉', name: 'Suntikan' },
+  { id: 21, icon: '🤒', name: 'Pasien Sakit' },
+  { id: 22, icon: '🤕', name: 'Pasien Terluka' },
+  { id: 23, icon: '😷', name: 'Pasien dengan Masker' },
+  { id: 24, icon: '🤢', name: 'Pasien Mual' },
+  { id: 25, icon: '🤧', name: 'Pasien Bersin' },
+  { id: 26, icon: '🧼', name: 'Sabun' },
+  { id: 27, icon: '🦷', name: 'Gigi' }
+];
+
+// Preset role configurations for 5 players
+const PRESET_ROLES_FOR_5 = [
+  { civilian: 3, undercover: 1, mrwhite: 1, label: '3 Civilian, 1 Undercover, 1 Mr. White' },
+  { civilian: 3, undercover: 2, mrwhite: 0, label: '3 Civilian, 2 Undercover' }
 ];
 
 // Utility functions
@@ -55,8 +91,8 @@ const generateRoomCode = (): string => {
   return result;
 };
 
-const calculateRoles = (totalPlayers: number) => {
-  // Aturan distribusi:
+const calculateRoles = (totalPlayers: number): RoleDistribution => {
+  // Aturan distribusi otomatis:
   // - Undercover: ~30% dari total pemain (minimal 1)
   // - Mr. White: ~10% dari total pemain (maksimal 1 untuk permainan kecil)
   // - Sisanya: Civilian
@@ -75,6 +111,58 @@ const calculateRoles = (totalPlayers: number) => {
   return { civilian, undercover, mrwhite };
 };
 
+const validateCustomRoles = (
+  totalPlayers: number,
+  distribution: RoleDistribution
+): { valid: boolean; message?: string } => {
+  const { civilian, undercover, mrwhite } = distribution;
+  const total = civilian + undercover + mrwhite;
+
+  // Cek total pemain
+  if (total !== totalPlayers) {
+    return { 
+      valid: false, 
+      message: `Total peran (${total}) harus sama dengan jumlah pemain (${totalPlayers})` 
+    };
+  }
+
+  // Cek civilian harus terbanyak
+  if (civilian <= undercover + mrwhite) {
+    return { 
+      valid: false, 
+      message: 'Jumlah Civilian harus lebih banyak dari gabungan Undercover dan Mr. White' 
+    };
+  }
+
+  // Cek undercover harus minoritas
+  if (undercover >= civilian) {
+    return { 
+      valid: false, 
+      message: 'Jumlah Undercover harus lebih sedikit dari Civilian' 
+    };
+  }
+
+  // Cek Mr. White tidak lebih banyak dari Undercover
+  if (mrwhite > undercover) {
+    return { 
+      valid: false, 
+      message: 'Jumlah Mr. White tidak boleh lebih banyak dari Undercover' 
+    };
+  }
+
+  // Untuk 6-15 pemain, Mr. White bisa lebih dari 1 tapi tetap tidak lebih dari Undercover
+  if (totalPlayers >= 6 && totalPlayers <= 15) {
+    if (mrwhite < 0 || mrwhite > undercover) {
+      return { 
+        valid: false, 
+        message: 'Jumlah Mr. White harus antara 0 sampai jumlah Undercover' 
+      };
+    }
+  }
+
+  return { valid: true };
+};
+
 export default function OfflineSetup() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -82,11 +170,44 @@ export default function OfflineSetup() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerAvatar, setNewPlayerAvatar] = useState(1);
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
+  const [customRoleConfig, setCustomRoleConfig] = useState<CustomRoleConfig>({
+    enabled: false,
+    distribution: { civilian: 0, undercover: 0, mrwhite: 0 }
+  });
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [settings] = useState({
     civilian_percentage: 60,
     undercover_percentage: 30,
     mrwhite_percentage: 10,
   });
+
+  // Check if custom roles are available (more than 4 players)
+  const canCustomizeRoles = players.length > 4;
+
+  // Update custom distribution when players change or when toggling custom mode
+  useEffect(() => {
+    if (canCustomizeRoles && customRoleConfig.enabled) {
+      // Reset to default calculated roles when enabling custom mode
+      const defaultRoles = calculateRoles(players.length);
+      setCustomRoleConfig(prev => ({
+        ...prev,
+        distribution: defaultRoles
+      }));
+      setValidationError(null);
+    }
+  }, [players.length, customRoleConfig.enabled, canCustomizeRoles]);
+
+  // Reset custom config when players change significantly
+  useEffect(() => {
+    if (customRoleConfig.enabled) {
+      const defaultRoles = calculateRoles(players.length);
+      setCustomRoleConfig(prev => ({
+        ...prev,
+        distribution: defaultRoles
+      }));
+    }
+  }, [players.length]);
 
   const addPlayer = () => {
     if (newPlayerName.trim() && players.length < 15) {
@@ -111,12 +232,79 @@ export default function OfflineSetup() {
     ));
   };
 
+  const toggleCustomRoles = () => {
+    if (!canCustomizeRoles) return;
+    
+    setCustomRoleConfig(prev => ({
+      enabled: !prev.enabled,
+      distribution: !prev.enabled ? calculateRoles(players.length) : prev.distribution
+    }));
+    setValidationError(null);
+    setSelectedPreset(null);
+  };
+
+  const applyPreset = (presetIndex: number) => {
+    const preset = PRESET_ROLES_FOR_5[presetIndex];
+    setCustomRoleConfig({
+      enabled: true,
+      distribution: preset
+    });
+    setSelectedPreset(presetIndex);
+    setValidationError(null);
+  };
+
+  const updateRoleCount = (role: keyof RoleDistribution, increment: boolean) => {
+    setCustomRoleConfig(prev => {
+      const newDistribution = { ...prev.distribution };
+      const change = increment ? 1 : -1;
+      
+      // Update the specific role
+      newDistribution[role] = Math.max(0, newDistribution[role] + change);
+      
+      // Validate the new distribution
+      const validation = validateCustomRoles(players.length, newDistribution);
+      setValidationError(validation.valid ? null : validation.message || null);
+      
+      return {
+        ...prev,
+        distribution: newDistribution
+      };
+    });
+    setSelectedPreset(null);
+  };
+
+  const resetToAutoRoles = () => {
+    const autoRoles = calculateRoles(players.length);
+    setCustomRoleConfig({
+      enabled: true,
+      distribution: autoRoles
+    });
+    setSelectedPreset(null);
+    setValidationError(null);
+  };
+
   const startGame = () => {
+    // Get final role distribution
+    let finalDistribution: RoleDistribution;
+    
+    if (customRoleConfig.enabled) {
+      // Validate custom roles before starting
+      const validation = validateCustomRoles(players.length, customRoleConfig.distribution);
+      if (!validation.valid) {
+        setValidationError(validation.message || 'Invalid role distribution');
+        return;
+      }
+      finalDistribution = customRoleConfig.distribution;
+    } else {
+      finalDistribution = calculateRoles(players.length);
+    }
+
     const gameData = {
       players,
       themeId: selectedTheme,
       settings,
       roomCode: generateRoomCode(),
+      roleDistribution: finalDistribution // Simpan distribusi peran yang akan digunakan
     };
     
     // Store in sessionStorage for the game page
@@ -130,7 +318,15 @@ export default function OfflineSetup() {
     return true;
   };
 
-  const roleDistribution = calculateRoles(players.length);
+  // Get role distribution based on current configuration
+  const getCurrentRoleDistribution = (): RoleDistribution => {
+    if (customRoleConfig.enabled) {
+      return customRoleConfig.distribution;
+    }
+    return calculateRoles(players.length);
+  };
+
+  const roleDistribution = getCurrentRoleDistribution();
 
   // Get theme name for display
   const getSelectedThemeName = () => {
@@ -342,7 +538,111 @@ export default function OfflineSetup() {
                           animate={{ opacity: 1, height: 'auto' }}
                           className="mt-4 pt-4 border-t border-gray-100"
                         >
-                          <p className="text-sm text-gray-500 mb-2">Distribusi Peran:</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-gray-500">Distribusi Peran:</p>
+                            
+                            {/* Custom role toggle - hanya muncul jika pemain > 4 */}
+                            {canCustomizeRoles && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={toggleCustomRoles}
+                                className={cn(
+                                  "text-xs gap-1",
+                                  customRoleConfig.enabled 
+                                    ? "text-emerald-600 bg-emerald-50" 
+                                    : "text-gray-600"
+                                )}
+                              >
+                                <Sliders className="w-3 h-3" />
+                                {customRoleConfig.enabled ? "Custom Mode ON" : "Custom Mode OFF"}
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Custom role controls */}
+                          {customRoleConfig.enabled && canCustomizeRoles && (
+                            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                              <p className="text-xs font-medium text-gray-700 mb-2">
+                                Atur Jumlah Peran:
+                              </p>
+                              
+                              {/* Preset untuk 5 pemain */}
+                              {players.length === 5 && (
+                                <div className="mb-3">
+                                  <p className="text-xs text-gray-500 mb-2">Pilih preset:</p>
+                                  <div className="flex gap-2">
+                                    {PRESET_ROLES_FOR_5.map((preset, index) => (
+                                      <Button
+                                        key={index}
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => applyPreset(index)}
+                                        className={cn(
+                                          "text-xs flex-1",
+                                          selectedPreset === index && "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                        )}
+                                      >
+                                        {preset.label}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 mb-2">
+                                {(['civilian', 'undercover', 'mrwhite'] as const).map((role) => (
+                                  <div key={role} className="flex-1 text-center">
+                                    <p className="text-xs text-gray-500 mb-1">
+                                      {role === 'civilian' ? '🏥 Civilian' : 
+                                       role === 'undercover' ? '🕵️ Undercover' : '👻 Mr. White'}
+                                    </p>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-6 h-6 p-0"
+                                        onClick={() => updateRoleCount(role, false)}
+                                        disabled={customRoleConfig.distribution[role] <= 0}
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                      <span className="w-8 text-center font-bold">
+                                        {customRoleConfig.distribution[role]}
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-6 h-6 p-0"
+                                        onClick={() => updateRoleCount(role, true)}
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Reset button */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={resetToAutoRoles}
+                                className="w-full mt-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              >
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Reset ke distribusi otomatis
+                              </Button>
+
+                              {/* Validation error */}
+                              {validationError && (
+                                <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                                  ⚠️ {validationError}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex gap-3 flex-wrap">
                             <Badge className="bg-blue-100 text-blue-700 border-0">
                               🏥 Civilian: {roleDistribution.civilian}
@@ -354,6 +654,13 @@ export default function OfflineSetup() {
                               👻 Mr. White: {roleDistribution.mrwhite}
                             </Badge>
                           </div>
+
+                          {/* Info custom mode */}
+                          {canCustomizeRoles && !customRoleConfig.enabled && (
+                            <p className="text-xs text-emerald-600 mt-2">
+                              💡 Aktifkan Custom Mode untuk mengatur jumlah peran sesuai keinginan
+                            </p>
+                          )}
                         </motion.div>
                       )}
                     </>
@@ -361,7 +668,7 @@ export default function OfflineSetup() {
                 </CardContent>
               </Card>
 
-              {/* Warning message - full width di bawah kedua kolom */}
+              {/* Warning message */}
               {players.length < 4 && (
                 <div className="md:col-span-2 flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-xl">
                   <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -471,6 +778,15 @@ export default function OfflineSetup() {
                         </p>
                       </div>
                     </div>
+                    
+                    {/* Mode distribusi */}
+                    {customRoleConfig.enabled && canCustomizeRoles && (
+                      <div className="mt-3">
+                        <Badge className="bg-emerald-100 text-emerald-700 border-0">
+                          ⚙️ Custom Role Distribution
+                        </Badge>
+                      </div>
+                    )}
                   </div>
 
                   {/* Role distribution */}
@@ -493,6 +809,14 @@ export default function OfflineSetup() {
                         <p className="text-xs text-purple-600">Mr. White</p>
                       </div>
                     </div>
+                    
+                    {/* Validation warning di step 3 */}
+                    {validationError && (
+                      <div className="mt-3 text-sm text-red-600 bg-red-50 p-3 rounded-lg flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{validationError}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Players preview */}
@@ -522,11 +846,18 @@ export default function OfflineSetup() {
                 <Button
                   size="lg"
                   onClick={startGame}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-6 text-lg font-semibold"
+                  disabled={validationError !== null}
+                  className={cn(
+                    "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-6 text-lg font-semibold",
+                    validationError && "opacity-50 cursor-not-allowed"
+                  )}
                 >
                   <Play className="mr-2 h-5 w-5" />
                   Mulai Permainan! 🎮
                 </Button>
+                {validationError && (
+                  <p className="text-sm text-red-600 mt-2">{validationError}</p>
+                )}
               </div>
             </motion.div>
           )}
