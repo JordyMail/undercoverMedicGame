@@ -1143,849 +1143,860 @@ const handleRevote = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      <div className="max-w-7xl mx-auto px-1 py-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6"
-        >
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Med-Undercover</h1>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
-              <span>Ronde {gameState.round}</span>
-              <Badge className="bg-emerald-100 text-emerald-700 border-0">
-                {gameState.themeName}
-              </Badge>
-              {gameState.roleDistribution && (
-                <Badge className="bg-amber-100 text-amber-700 border-0">
-                  <Settings className="h-3 w-3 mr-1" />
-                  Custom Roles
+    <div className="h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col overflow-hidden">
+      {/* Header - Sticky */}
+      <div className="flex-shrink-0 px-4 py-4 bg-white/80 backdrop-blur-sm border-b border-emerald-100 shadow-sm">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Med-Undercover</h1>
+              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                <span>Ronde {gameState.round}</span>
+                <Badge className="bg-emerald-100 text-emerald-700 border-0">
+                  {gameState.themeName}
                 </Badge>
-              )}
+                {gameState.roleDistribution && (
+                  <Badge className="bg-amber-100 text-amber-700 border-0">
+                    <Settings className="h-3 w-3 mr-1" />
+                    Custom Roles
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-3">
-            <Badge className="bg-emerald-500 text-white">
-              <Users className="h-3 w-3 mr-1" />
-              {alivePlayers.length} pemain hidup
-            </Badge>
+            <div className="flex items-center space-x-3">
+              <Badge className="bg-emerald-500 text-white">
+                <Users className="h-3 w-3 mr-1" />
+                {alivePlayers.length} pemain hidup
+              </Badge>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLeaveConfirmation(true)}
-              className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Keluar
-            </Button>
-          </div>
-        </motion.div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLeaveConfirmation(true)}
+                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Keluar
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
 
-        <div className="grid lg:grid-cols-5 gap-6">
-          {/* Sidebar - Players List */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Players Card */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <h4 className="font-semibold mb-3 flex items-center">
-                  <Users className="h-4 w-4 mr-2" />
-                  Pemain ({alivePlayers.length})
-                </h4>
-                
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {gameState.players.map((player, index) => (
-                    <div
-                      key={player.id}
-                      className={cn(
-                        "flex items-center justify-between p-2 rounded-lg transition-colors",
-                        player.is_alive ? "bg-white" : "bg-gray-50 opacity-60",
-                        gameState.phase === 'passDevice' && gameState.currentPlayerIndex === index && "ring-2 ring-emerald-500"
-                      )}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white text-sm">
-                          {getAvatarIcon(player.avatar_id)}
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">{player.name}</span>
-                          {player.has_seen_word && player.is_alive && (
-                            <Badge variant="outline" className="ml-2 text-xs bg-green-100 text-green-700 border-green-200">
-                              ✓
-                            </Badge>
-                          )}
-                          {gameState.phase === 'passDevice' && (
-                            <span className="ml-2 text-xs text-gray-400">
-                              #{gameState.viewingOrder.indexOf(player.id) + 1}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {!player.is_alive && (
-                        <Skull className="h-4 w-4 text-gray-400" />
-                      )}
-
-                      {gameState.phase === 'voting' && player.is_alive && 
-                       player.id !== alivePlayers[gameState.currentPlayerIndex]?.id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleVote(player.id)}
-                          className="text-xs"
-                        >
-                          Vote
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {eliminatedPlayers.length > 0 && (
-                  <>
-                    <h5 className="font-medium text-sm mt-4 mb-2 text-gray-400">
-                      Tereliminasi ({eliminatedPlayers.length})
-                    </h5>
-                    <div className="space-y-1">
-                      {eliminatedPlayers.map((player) => (
-                        <div key={player.id} className="flex items-center space-x-2 p-1 opacity-60">
-                          <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs">
+      {/* Main Content - Scrollable Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="grid lg:grid-cols-5 gap-6">
+            {/* Sidebar - Players List (Sticky relative to scroll container) */}
+            <div className="lg:col-span-1 space-y-4 sticky top-0 self-start">
+              {/* Players Card */}
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <h4 className="font-semibold mb-3 flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    Pemain ({alivePlayers.length})
+                  </h4>
+                  
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {gameState.players.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg transition-colors",
+                          player.is_alive ? "bg-white" : "bg-gray-50 opacity-60",
+                          gameState.phase === 'passDevice' && gameState.currentPlayerIndex === index && "ring-2 ring-emerald-500"
+                        )}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white text-sm">
                             {getAvatarIcon(player.avatar_id)}
                           </div>
-                          <span className="text-xs text-gray-400 line-through">{player.name}</span>
+                          <div>
+                            <span className="text-sm font-medium">{player.name}</span>
+                            {player.has_seen_word && player.is_alive && (
+                              <Badge variant="outline" className="ml-2 text-xs bg-green-100 text-green-700 border-green-200">
+                                ✓
+                              </Badge>
+                            )}
+                            {gameState.phase === 'passDevice' && (
+                              <span className="ml-2 text-xs text-gray-400">
+                                #{gameState.viewingOrder.indexOf(player.id) + 1}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {!player.is_alive && (
+                          <Skull className="h-4 w-4 text-gray-400" />
+                        )}
+
+                        {gameState.phase === 'voting' && player.is_alive && 
+                         player.id !== alivePlayers[gameState.currentPlayerIndex]?.id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleVote(player.id)}
+                            className="text-xs"
+                          >
+                            Vote
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {eliminatedPlayers.length > 0 && (
+                    <>
+                      <h5 className="font-medium text-sm mt-4 mb-2 text-gray-400">
+                        Tereliminasi ({eliminatedPlayers.length})
+                      </h5>
+                      <div className="space-y-1">
+                        {eliminatedPlayers.map((player) => (
+                          <div key={player.id} className="flex items-center space-x-2 p-1 opacity-60">
+                            <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs">
+                              {getAvatarIcon(player.avatar_id)}
+                            </div>
+                            <span className="text-xs text-gray-400 line-through">{player.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Role Distribution Preview */}
+              {gameState.phase === 'playing' && (
+                <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-50">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold mb-3 flex items-center text-emerald-700">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Distribusi Peran
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-blue-600">🏥 Civilian:</span>
+                        <span className="font-medium">{gameState.players.filter(p => p.role === 'civilian' && p.is_alive).length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-red-600">🕵️ Undercover:</span>
+                        <span className="font-medium">{gameState.players.filter(p => p.role === 'undercover' && p.is_alive).length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-600">👻 Mr. White:</span>
+                        <span className="font-medium">{gameState.players.filter(p => p.role === 'mrwhite' && p.is_alive).length}</span>
+                      </div>
+                      {gameState.roleDistribution && (
+                        <div className="mt-2 pt-2 border-t border-emerald-200">
+                          <p className="text-xs text-emerald-600">
+                            ⚙️ Custom distribution dari setup
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Main Game Area - Scrollable */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Game Phase Content */}
+              <AnimatePresence mode="wait">
+                {/* Pass Device Phase */}
+                {gameState.phase === 'passDevice' && currentPlayer && (
+                  <motion.div
+                    key="passDevice"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                      <CardContent className="p-8 text-center">
+                        <motion.div
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6"
+                        >
+                          <Eye className="h-12 w-12 text-white" />
+                        </motion.div>
+
+                        <h2 className="text-3xl font-bold mb-3">
+                          Giliran: {currentPlayer.name}
+                        </h2>
+                        
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full mb-6">
+                          <span className="font-medium">
+                            Pemain {gameState.currentPlayerIndex + 1} dari {gameState.players.length}
+                          </span>
+                        </div>
+
+                        <div className="bg-amber-500/30 border border-amber-300/30 rounded-xl p-4 mb-6 max-w-md mx-auto">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-200 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-left text-white/90">
+                              <strong>Penting:</strong> Pastikan hanya <strong>{currentPlayer.name}</strong> yang melihat layar ini. 
+                              Pemain lain jangan mengintip!
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="text-white/80 mb-8">
+                          Siap untuk melihat kartu rahasiamu?
+                        </p>
+
+                        <Button
+                          size="lg"
+                          onClick={handleReadyToSee}
+                          className="bg-white text-emerald-600 hover:bg-white/90 px-8 py-6 text-lg font-semibold"
+                        >
+                          <Eye className="mr-2 h-5 w-5" />
+                          Saya Siap, Tampilkan Kartu!
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Distribution Phase - Secret Word Card */}
+                {gameState.phase === 'distribution' && currentPlayer && (
+                  <motion.div
+                    key="distribution"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                  >
+                    <Card className="border-0 shadow-xl overflow-hidden">
+                      {isCurrentPlayerMrWhite && (
+                        <div className={cn(
+                          "h-2",
+                          currentPlayer.role === 'mrwhite' && "bg-purple-500"
+                        )} />
+                      )}
+                      <CardContent className="p-8 text-center">
+                        <div className="mb-6">
+                          {isCurrentPlayerMrWhite ? (
+                            <>
+                              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-purple-100">
+                                <span className="text-4xl">👻</span>
+                              </div>
+                              <Badge className="bg-purple-500 text-white border-0">
+                                Mr. White
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-100">
+                                <span className="text-4xl">🎭</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                          Halo, {currentPlayer.name}!
+                        </h3>
+
+                        {currentPlayer.role === 'mrwhite' ? (
+                          <div className="space-y-4">
+                            <p className="text-gray-600">
+                              Kamu adalah <span className="font-bold text-purple-600">Mr. White</span>
+                            </p>
+                            <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
+                              <p className="text-purple-700 font-medium">
+                                Kamu tidak mendapatkan kata rahasia!
+                              </p>
+                              <p className="text-sm text-purple-600 mt-2">
+                                Dengarkan deskripsi pemain lain untuk menebak kata Civilian.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <p className="text-gray-600">
+                              Kata rahasiamu adalah:
+                            </p>
+                            <div className="text-4xl font-bold py-4 px-8 rounded-xl inline-block bg-emerald-50 text-emerald-700">
+                              {currentPlayer.word}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-8 pt-6 border-t border-gray-100">
+                          <p className="text-sm text-gray-500 mb-4">
+                            Hafalkan kata ini. Setelah klik tombol di bawah, kartu akan disembunyikan.
+                          </p>
+                          <Button
+                            size="lg"
+                            onClick={handleWordSeen}
+                            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
+                          >
+                            <Check className="mr-2 h-5 w-5" />
+                            Saya Sudah Hafal
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Playing Phase */}
+                {gameState.phase === 'playing' && (
+                  <motion.div
+                    key="playing"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Card className="border-0 shadow-lg mb-4">
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                            <MessageSquare className="h-6 w-6 text-emerald-600" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-800">Fase Deskripsi</h2>
+                            <p className="text-gray-500 text-sm">Bergiliran memberikan deskripsi kata</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm text-amber-700">
+                              <p className="font-medium mb-1">Aturan:</p>
+                              <ul className="list-disc list-inside space-y-1">
+                                <li>Berikan 1 kata/kalimat untuk mendeskripsikan katamu</li>
+                                <li>Jangan menyebut kata yang kamu dapat!</li>
+                                <li>Perhatikan deskripsi yang mencurigakan</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                          <p className="text-emerald-700 text-sm">
+                            <span className="font-bold">Tema:</span> {gameState.themeName}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="text-center">
+                      <Button
+                        size="lg"
+                        onClick={startVoting}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-6 text-lg font-semibold"
+                      >
+                        <Vote className="mr-2 h-5 w-5" />
+                        Mulai Voting Eliminasi
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Voting Phase */}
+                {gameState.phase === 'voting' && (
+                  <motion.div
+                    key="voting"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-6">
+                        <div className="text-center mb-6">
+                          <h2 className="text-2xl font-bold text-gray-800 mb-2">Fase Voting</h2>
+                          <p className="text-gray-500">
+                            Giliran: <strong>{alivePlayers[gameState.currentPlayerIndex]?.name}</strong> untuk vote
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {alivePlayers.map((player) => {
+                            const currentVoter = alivePlayers[gameState.currentPlayerIndex];
+                            if (player.id === currentVoter?.id) return null;
+                            
+                            return (
+                              <button
+                                key={player.id}
+                                onClick={() => handleVote(player.id)}
+                                className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-400 hover:shadow-lg transition-all text-center group"
+                              >
+                                <div className="text-3xl mb-2">{getAvatarIcon(player.avatar_id)}</div>
+                                <p className="font-medium text-gray-800 text-sm truncate">{player.name}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {(player.vote_count || 0) > 0 && `${player.vote_count} suara`}
+                                </p>
+                                <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Badge className="bg-emerald-500 text-white">Pilih</Badge>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Elimination Phase */}
+                {gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
+                  <motion.div
+                    key="elimination"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                  >
+                    <Card className="border-0 shadow-lg overflow-hidden">
+                      <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
+                      <CardContent className="p-8 text-center">
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", delay: 0.2 }}
+                          className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                        >
+                          <Skull className="h-12 w-12 text-red-500" />
+                        </motion.div>
+
+                        <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
+                        <p className="text-gray-500 mb-6">
+                          {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
+                        </p>
+
+                        <div className={cn(
+                          "p-6 rounded-xl mb-6",
+                          gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
+                          gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
+                        )}>
+                          <div className="flex items-center justify-center space-x-3 mb-3">
+                            <span className="text-2xl">
+                              {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
+                               gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
+                            </span>
+                            <span className={cn(
+                              "text-xl font-bold",
+                              gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
+                              gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
+                            )}>
+                              {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
+                              {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
+                              {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {gameState.eliminatedPlayer.role === 'mrwhite' && (
+                          <div className="space-y-4 mb-6">
+                            <p className="text-gray-600">
+                              Mr. White punya kesempatan untuk menebak kata Civilian!
+                            </p>
+                            <div className="flex gap-2 max-w-md mx-auto">
+                              <Input
+                                placeholder="Masukkan tebakanmu..."
+                                value={mrWhiteGuess}
+                                onChange={(e) => setMrWhiteGuess(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
+                                className="flex-1"
+                              />
+                              <Button
+                                onClick={handleMrWhiteGuess}
+                                disabled={!mrWhiteGuess.trim()}
+                                className="bg-purple-500 hover:bg-purple-600"
+                              >
+                                Tebak
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {gameState.eliminatedPlayer.role !== 'mrwhite' && (
+                          <Button
+                            size="lg"
+                            onClick={checkGameEnd}
+                            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
+                          >
+                            <ChevronRight className="mr-2 h-5 w-5" />
+                            Lanjutkan Permainan
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+               {/* Finished Phase */}
+  {gameState.phase === 'finished' && (() => {
+    const gameResult: GameResult = {
+      winner: gameState.winner,
+      winReason: gameState.winReason,
+      finalRound: gameState.round
+    };
+    
+    const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+    
+    // Hitung total skor kumulatif dengan mengambil dari playerStats
+    const playersWithCumulativeScore = scoredPlayers.map(playerScore => {
+      const player = gameState.players.find(p => p.id === playerScore.playerId);
+      const stats = player ? playerStats.getPlayerStats(player.id) : null;
+      
+      // PERBAIKAN: cumulativeScore adalah stats.totalScore (sudah termasuk game ini)
+      // karena stats sudah diupdate di handlePlayAgain nanti
+      return {
+        ...playerScore,
+        cumulativeScore: stats?.totalScore || playerScore.totalScore,
+        previousScore: stats ? stats.totalScore - playerScore.totalScore : 0,
+        gameScore: playerScore.totalScore
+      };
+    });
+
+    return (
+      <motion.div
+        key="finished"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        {/* Card Hasil Akhir */}
+        <Card className={cn(
+          "border-0 shadow-xl overflow-hidden mb-6",
+          gameState.winner === 'civilian' ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
+          gameState.winner === 'undercover' ? "bg-gradient-to-br from-red-500 to-orange-500" :
+          "bg-gradient-to-br from-purple-500 to-pink-500"
+        )}>
+          <CardContent className="p-8 text-center text-white">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", delay: 0.2 }}
+              className="text-6xl mb-4"
+            >
+              🏆
+            </motion.div>
+            <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
+            <div className="inline-block px-6 py-2 bg-white/20 rounded-full font-bold text-lg mb-4">
+              {gameState.winner === 'civilian' && '🏥 Civilian Menang!'}
+              {gameState.winner === 'undercover' && '🕵️ Undercover Menang!'}
+              {gameState.winner === 'mrwhite' && '👻 Mr. White Menang!'}
+            </div>
+            <p className="text-white/90 mb-6">{gameState.winReason}</p>
+
+            <div className="bg-white/10 rounded-xl p-4 mb-4">
+              <p className="text-sm text-white/80 mb-2">Kata dalam permainan:</p>
+              <div className="flex justify-center gap-6">
+                <div className="text-center">
+                  <p className="text-xs text-white/70">Civilian</p>
+                  <p className="font-bold text-xl">{gameState.civilianWord}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-white/70">Undercover</p>
+                  <p className="font-bold text-xl">{gameState.undercoverWord}</p>
+                </div>
+              </div>
+              <p className="text-xs text-white/70 mt-2">
+                Tema: {gameState.themeName}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Leaderboard - Scrollable */}
+        <Card className="border-0 shadow-lg mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Trophy className="h-6 w-6 text-amber-500" />
+                Leaderboard & Skor Akhir
+              </h2>
+              <Badge className="bg-amber-100 text-amber-700 border-0 px-3 py-1">
+                <Sparkles className="h-4 w-4 mr-1" />
+                Total Skor Kumulatif
+              </Badge>
+            </div>
+
+            <div className=" pr-2 space-y-3">
+              {playersWithCumulativeScore
+                .sort((a, b) => b.cumulativeScore - a.cumulativeScore)
+                .map((playerScore, index) => {
+                  const player = gameState.players.find(p => p.id === playerScore.playerId)!;
+                  const roleColors = {
+                    civilian: 'border-blue-200 bg-blue-50',
+                    undercover: 'border-red-200 bg-red-50',
+                    mrwhite: 'border-purple-200 bg-purple-50'
+                  };
+                  
+                  return (
+                    <motion.div
+                      key={player.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className={cn(
+                        'border-2 rounded-xl p-4',
+                        roleColors[player.role as keyof typeof roleColors] || 'border-gray-200 bg-white',
+                        index === 0 && 'ring-4 ring-amber-400 shadow-lg'
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          'w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0',
+                          index === 0 && 'bg-amber-400 text-white',
+                          index === 1 && 'bg-gray-300 text-gray-700',
+                          index === 2 && 'bg-orange-400 text-white',
+                          index > 2 && 'bg-gray-200 text-gray-600'
+                        )}>
+                          {index === 0 ? '👑' : index + 1}
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-2xl">{getAvatarIcon(player.avatar_id)}</span>
+                            <span className="font-bold text-gray-800">{player.name}</span>
+                            <Badge className={cn(
+                              player.role === 'civilian' ? "bg-blue-100 text-blue-700" :
+                              player.role === 'undercover' ? "bg-red-100 text-red-700" :
+                              "bg-purple-100 text-purple-700"
+                            )}>
+                              {player.role === 'civilian' && 'Civilian'}
+                              {player.role === 'undercover' && 'Undercover'}
+                              {player.role === 'mrwhite' && 'Mr. White'}
+                            </Badge>
+                            {!player.is_alive && (
+                              <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                                Tereliminasi
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-1 text-xs mt-2">
+                            {playerScore.breakdown.map((item, i) => (
+                              <span
+                                key={i}
+                                className={cn(
+                                  'px-2 py-0.5 rounded-full',
+                                  item.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                )}
+                              >
+                                {item.description}: {item.points > 0 ? '+' : ''}{item.points}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Informasi skor */}
+                          <div className="flex gap-3 mt-2 text-xs">
+                            <span className="text-emerald-600">
+                              Skor Game Ini: +{playerScore.gameScore}
+                            </span>
+                            {playerScore.previousScore > 0 && (
+                              <span className="text-blue-600">
+                                Skor Sebelumnya: {playerScore.previousScore}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-center flex-shrink-0">
+                          <div className={cn(
+                            'text-3xl font-bold',
+                            index === 0 ? 'text-amber-500' : 'text-gray-700'
+                          )}>
+                            {playerScore.cumulativeScore}
+                          </div>
+                          <div className="text-xs text-gray-500">Total Skor</div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Button
+            variant="outline"
+            onClick={restartGame}
+            className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Game Baru
+          </Button>
+          
+          {/* TOMBOL MAIN LAGI */}
+          <Button
+            onClick={handlePlayAgain}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Main Lagi
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={goHome}
+            className="border-gray-500 text-gray-600 hover:bg-gray-50"
+          >
+            <Home className="mr-2 h-4 w-4" />
+            Ke Beranda
+          </Button>
+        </div>
+      </motion.div>
+    );
+  })()}
+              </AnimatePresence>
+            </div>
+
+            {/* Chat - Sticky */}
+            <div className="lg:col-span-1 sticky top-0 self-start">
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <h4 className="font-semibold mb-3 flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Catatan
+                  </h4>
+                  
+                  <ScrollArea className="h-80 mb-4 border rounded p-3" ref={chatScrollRef}>
+                    <div className="space-y-2">
+                      {gameState.chatMessages.map((msg) => (
+                        <div key={msg.id} className="text-sm">
+                          <span className="font-medium text-emerald-600">
+                            {msg.playerName}:
+                          </span>
+                          <span className="ml-2 text-gray-700">{msg.message}</span>
+                          <span className="text-xs text-gray-400 ml-2">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
                         </div>
                       ))}
+                      {gameState.chatMessages.length === 0 && (
+                        <div className="text-center text-gray-400 text-sm py-4">
+                          Belum ada pesan. Mulai diskusi!
+                        </div>
+                      )}
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Role Distribution Preview */}
-            {gameState.phase === 'playing' && (
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-50">
-                <CardContent className="p-4">
-                  <h4 className="font-semibold mb-3 flex items-center text-emerald-700">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Distribusi Peran
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-blue-600">🏥 Civilian:</span>
-                      <span className="font-medium">{gameState.players.filter(p => p.role === 'civilian' && p.is_alive).length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-red-600">🕵️ Undercover:</span>
-                      <span className="font-medium">{gameState.players.filter(p => p.role === 'undercover' && p.is_alive).length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-600">👻 Mr. White:</span>
-                      <span className="font-medium">{gameState.players.filter(p => p.role === 'mrwhite' && p.is_alive).length}</span>
-                    </div>
-                    {gameState.roleDistribution && (
-                      <div className="mt-2 pt-2 border-t border-emerald-200">
-                        <p className="text-xs text-emerald-600">
-                          ⚙️ Custom distribution dari setup
-                        </p>
-                      </div>
-                    )}
+                  </ScrollArea>
+                  
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="Tulis pesan..."
+                      value={chatMessage}
+                      onChange={(e) => setChatMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendChat()}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleSendChat}
+                      disabled={!chatMessage.trim()}
+                      className="bg-emerald-500 hover:bg-emerald-600"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-
-          {/* Main Game Area */}
-          <div className="lg:col-span-3 space-y-4">
-            {/* Game Phase Content */}
-            <AnimatePresence mode="wait">
-              {/* Pass Device Phase */}
-              {gameState.phase === 'passDevice' && currentPlayer && (
-                <motion.div
-                  key="passDevice"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                    <CardContent className="p-8 text-center">
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6"
-                      >
-                        <Eye className="h-12 w-12 text-white" />
-                      </motion.div>
-
-                      <h2 className="text-3xl font-bold mb-3">
-                        Giliran: {currentPlayer.name}
-                      </h2>
-                      
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full mb-6">
-                        <span className="font-medium">
-                          Pemain {gameState.currentPlayerIndex + 1} dari {gameState.players.length}
-                        </span>
-                      </div>
-
-                      <div className="bg-amber-500/30 border border-amber-300/30 rounded-xl p-4 mb-6 max-w-md mx-auto">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-amber-200 flex-shrink-0 mt-0.5" />
-                          <p className="text-sm text-left text-white/90">
-                            <strong>Penting:</strong> Pastikan hanya <strong>{currentPlayer.name}</strong> yang melihat layar ini. 
-                            Pemain lain jangan mengintip!
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="text-white/80 mb-8">
-                        Siap untuk melihat kartu rahasiamu?
-                      </p>
-
-                      <Button
-                        size="lg"
-                        onClick={handleReadyToSee}
-                        className="bg-white text-emerald-600 hover:bg-white/90 px-8 py-6 text-lg font-semibold"
-                      >
-                        <Eye className="mr-2 h-5 w-5" />
-                        Saya Siap, Tampilkan Kartu!
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* Distribution Phase - Secret Word Card */}
-              {gameState.phase === 'distribution' && currentPlayer && (
-                <motion.div
-                  key="distribution"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                >
-                  <Card className="border-0 shadow-xl overflow-hidden">
-                    {isCurrentPlayerMrWhite && (
-                      <div className={cn(
-                        "h-2",
-                        currentPlayer.role === 'mrwhite' && "bg-purple-500"
-                      )} />
-                    )}
-                    <CardContent className="p-8 text-center">
-                      <div className="mb-6">
-                        {isCurrentPlayerMrWhite ? (
-                          <>
-                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-purple-100">
-                              <span className="text-4xl">👻</span>
-                            </div>
-                            <Badge className="bg-purple-500 text-white border-0">
-                              Mr. White
-                            </Badge>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-100">
-                              <span className="text-4xl">🎭</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                        Halo, {currentPlayer.name}!
-                      </h3>
-
-                      {currentPlayer.role === 'mrwhite' ? (
-                        <div className="space-y-4">
-                          <p className="text-gray-600">
-                            Kamu adalah <span className="font-bold text-purple-600">Mr. White</span>
-                          </p>
-                          <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
-                            <p className="text-purple-700 font-medium">
-                              Kamu tidak mendapatkan kata rahasia!
-                            </p>
-                            <p className="text-sm text-purple-600 mt-2">
-                              Dengarkan deskripsi pemain lain untuk menebak kata Civilian.
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <p className="text-gray-600">
-                            Kata rahasiamu adalah:
-                          </p>
-                          <div className="text-4xl font-bold py-4 px-8 rounded-xl inline-block bg-emerald-50 text-emerald-700">
-                            {currentPlayer.word}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-8 pt-6 border-t border-gray-100">
-                        <p className="text-sm text-gray-500 mb-4">
-                          Hafalkan kata ini. Setelah klik tombol di bawah, kartu akan disembunyikan.
-                        </p>
-                        <Button
-                          size="lg"
-                          onClick={handleWordSeen}
-                          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
-                        >
-                          <Check className="mr-2 h-5 w-5" />
-                          Saya Sudah Hafal
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* Playing Phase */}
-              {gameState.phase === 'playing' && (
-                <motion.div
-                  key="playing"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card className="border-0 shadow-lg mb-4">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                          <MessageSquare className="h-6 w-6 text-emerald-600" />
-                        </div>
-                        <div>
-                          <h2 className="text-xl font-bold text-gray-800">Fase Deskripsi</h2>
-                          <p className="text-gray-500 text-sm">Bergiliran memberikan deskripsi kata</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm text-amber-700">
-                            <p className="font-medium mb-1">Aturan:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              <li>Berikan 1 kata/kalimat untuk mendeskripsikan katamu</li>
-                              <li>Jangan menyebut kata yang kamu dapat!</li>
-                              <li>Perhatikan deskripsi yang mencurigakan</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                        <p className="text-emerald-700 text-sm">
-                          <span className="font-bold">Tema:</span> {gameState.themeName}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <div className="text-center">
-                    <Button
-                      size="lg"
-                      onClick={startVoting}
-                      className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-6 text-lg font-semibold"
-                    >
-                      <Vote className="mr-2 h-5 w-5" />
-                      Mulai Voting Eliminasi
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Voting Phase */}
-              {gameState.phase === 'voting' && (
-                <motion.div
-                  key="voting"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <Card className="border-0 shadow-lg">
-                    <CardContent className="p-6">
-                      <div className="text-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Fase Voting</h2>
-                        <p className="text-gray-500">
-                          Giliran: <strong>{alivePlayers[gameState.currentPlayerIndex]?.name}</strong> untuk vote
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {alivePlayers.map((player) => {
-                          const currentVoter = alivePlayers[gameState.currentPlayerIndex];
-                          if (player.id === currentVoter?.id) return null;
-                          
-                          return (
-                            <button
-                              key={player.id}
-                              onClick={() => handleVote(player.id)}
-                              className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-400 hover:shadow-lg transition-all text-center group"
-                            >
-                              <div className="text-3xl mb-2">{getAvatarIcon(player.avatar_id)}</div>
-                              <p className="font-medium text-gray-800 text-sm truncate">{player.name}</p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {(player.vote_count || 0) > 0 && `${player.vote_count} suara`}
-                              </p>
-                              <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Badge className="bg-emerald-500 text-white">Pilih</Badge>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* Elimination Phase */}
-              {gameState.phase === 'elimination' && gameState.eliminatedPlayer && (
-                <motion.div
-                  key="elimination"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <Card className="border-0 shadow-lg overflow-hidden">
-                    <div className="h-2 bg-gradient-to-r from-red-500 to-orange-500" />
-                    <CardContent className="p-8 text-center">
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", delay: 0.2 }}
-                        className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"
-                      >
-                        <Skull className="h-12 w-12 text-red-500" />
-                      </motion.div>
-
-                      <h2 className="text-3xl font-bold text-gray-800 mb-2">Player Tereliminasi!</h2>
-                      <p className="text-gray-500 mb-6">
-                        {gameState.eliminatedPlayer.name} telah dikeluarkan dari permainan
-                      </p>
-
-                      <div className={cn(
-                        "p-6 rounded-xl mb-6",
-                        gameState.eliminatedPlayer.role === 'civilian' ? "bg-blue-50" :
-                        gameState.eliminatedPlayer.role === 'undercover' ? "bg-red-50" : "bg-purple-50"
-                      )}>
-                        <div className="flex items-center justify-center space-x-3 mb-3">
-                          <span className="text-2xl">
-                            {gameState.eliminatedPlayer.role === 'civilian' ? '🏥' :
-                             gameState.eliminatedPlayer.role === 'undercover' ? '🕵️' : '👻'}
-                          </span>
-                          <span className={cn(
-                            "text-xl font-bold",
-                            gameState.eliminatedPlayer.role === 'civilian' ? "text-blue-700" :
-                            gameState.eliminatedPlayer.role === 'undercover' ? "text-red-700" : "text-purple-700"
-                          )}>
-                            {gameState.eliminatedPlayer.role === 'civilian' && 'Civilian'}
-                            {gameState.eliminatedPlayer.role === 'undercover' && 'Undercover'}
-                            {gameState.eliminatedPlayer.role === 'mrwhite' && 'Mr. White'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {gameState.eliminatedPlayer.role === 'mrwhite' && (
-                        <div className="space-y-4 mb-6">
-                          <p className="text-gray-600">
-                            Mr. White punya kesempatan untuk menebak kata Civilian!
-                          </p>
-                          <div className="flex gap-2 max-w-md mx-auto">
-                            <Input
-                              placeholder="Masukkan tebakanmu..."
-                              value={mrWhiteGuess}
-                              onChange={(e) => setMrWhiteGuess(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleMrWhiteGuess()}
-                              className="flex-1"
-                            />
-                            <Button
-                              onClick={handleMrWhiteGuess}
-                              disabled={!mrWhiteGuess.trim()}
-                              className="bg-purple-500 hover:bg-purple-600"
-                            >
-                              Tebak
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {gameState.eliminatedPlayer.role !== 'mrwhite' && (
-                        <Button
-                          size="lg"
-                          onClick={checkGameEnd}
-                          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8"
-                        >
-                          <ChevronRight className="mr-2 h-5 w-5" />
-                          Lanjutkan Permainan
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-             {/* Finished Phase */}
-{gameState.phase === 'finished' && (() => {
-  const gameResult: GameResult = {
-    winner: gameState.winner,
-    winReason: gameState.winReason,
-    finalRound: gameState.round
-  };
-  
-  const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
-  
-// Hitung total skor kumulatif dengan mengambil dari playerStats
-const playersWithCumulativeScore = scoredPlayers.map(playerScore => {
-  const player = gameState.players.find(p => p.id === playerScore.playerId);
-  const stats = player ? playerStats.getPlayerStats(player.id) : null;
-  
-  // PERBAIKAN: cumulativeScore adalah stats.totalScore (sudah termasuk game ini)
-  // karena stats sudah diupdate di handlePlayAgain nanti
-  return {
-    ...playerScore,
-    cumulativeScore: stats?.totalScore || playerScore.totalScore,
-    previousScore: stats ? stats.totalScore - playerScore.totalScore : 0,
-    gameScore: playerScore.totalScore
-  };
-});
-
-  return (
-    <motion.div
-      key="finished"
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-    >
-      <Card className={cn(
-        "border-0 shadow-xl overflow-hidden mb-6",
-        gameState.winner === 'civilian' ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
-        gameState.winner === 'undercover' ? "bg-gradient-to-br from-red-500 to-orange-500" :
-        "bg-gradient-to-br from-purple-500 to-pink-500"
-      )}>
-        <CardContent className="p-8 text-center text-white">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", delay: 0.2 }}
-            className="text-6xl mb-4"
-          >
-            🏆
-          </motion.div>
-          <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
-          <div className="inline-block px-6 py-2 bg-white/20 rounded-full font-bold text-lg mb-4">
-            {gameState.winner === 'civilian' && '🏥 Civilian Menang!'}
-            {gameState.winner === 'undercover' && '🕵️ Undercover Menang!'}
-            {gameState.winner === 'mrwhite' && '👻 Mr. White Menang!'}
-          </div>
-          <p className="text-white/90 mb-6">{gameState.winReason}</p>
-
-          <div className="bg-white/10 rounded-xl p-4 mb-4">
-            <p className="text-sm text-white/80 mb-2">Kata dalam permainan:</p>
-            <div className="flex justify-center gap-6">
-              <div className="text-center">
-                <p className="text-xs text-white/70">Civilian</p>
-                <p className="font-bold text-xl">{gameState.civilianWord}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-white/70">Undercover</p>
-                <p className="font-bold text-xl">{gameState.undercoverWord}</p>
-              </div>
             </div>
-            <p className="text-xs text-white/70 mt-2">
-              Tema: {gameState.themeName}
-            </p>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-lg mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-amber-500" />
-              Leaderboard & Skor Akhir
-            </h2>
-            <Badge className="bg-amber-100 text-amber-700 border-0 px-3 py-1">
-              <Sparkles className="h-4 w-4 mr-1" />
-              Total Skor Kumulatif
-            </Badge>
-          </div>
-
-          <div className="space-y-3">
-            {playersWithCumulativeScore
-              .sort((a, b) => b.cumulativeScore - a.cumulativeScore)
-              .map((playerScore, index) => {
-                const player = gameState.players.find(p => p.id === playerScore.playerId)!;
-                const roleColors = {
-                  civilian: 'border-blue-200 bg-blue-50',
-                  undercover: 'border-red-200 bg-red-50',
-                  mrwhite: 'border-purple-200 bg-purple-50'
-                };
-                
-                return (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={cn(
-                      'border-2 rounded-xl p-4',
-                      roleColors[player.role as keyof typeof roleColors] || 'border-gray-200 bg-white',
-                      index === 0 && 'ring-4 ring-amber-400 shadow-lg'
-                    )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0',
-                        index === 0 && 'bg-amber-400 text-white',
-                        index === 1 && 'bg-gray-300 text-gray-700',
-                        index === 2 && 'bg-orange-400 text-white',
-                        index > 2 && 'bg-gray-200 text-gray-600'
-                      )}>
-                        {index === 0 ? '👑' : index + 1}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-2xl">{getAvatarIcon(player.avatar_id)}</span>
-                          <span className="font-bold text-gray-800">{player.name}</span>
-                          <Badge className={cn(
-                            player.role === 'civilian' ? "bg-blue-100 text-blue-700" :
-                            player.role === 'undercover' ? "bg-red-100 text-red-700" :
-                            "bg-purple-100 text-purple-700"
-                          )}>
-                            {player.role === 'civilian' && 'Civilian'}
-                            {player.role === 'undercover' && 'Undercover'}
-                            {player.role === 'mrwhite' && 'Mr. White'}
-                          </Badge>
-                          {!player.is_alive && (
-                            <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                              Tereliminasi
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-1 text-xs mt-2">
-                          {playerScore.breakdown.map((item, i) => (
-                            <span
-                              key={i}
-                              className={cn(
-                                'px-2 py-0.5 rounded-full',
-                                item.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                              )}
-                            >
-                              {item.description}: {item.points > 0 ? '+' : ''}{item.points}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Informasi skor */}
-                        <div className="flex gap-3 mt-2 text-xs">
-                          <span className="text-emerald-600">
-                            Skor Game Ini: +{playerScore.gameScore}
-                          </span>
-                          {playerScore.previousScore > 0 && (
-                            <span className="text-blue-600">
-                              Skor Sebelumnya: {playerScore.previousScore}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-center flex-shrink-0">
-                        <div className={cn(
-                          'text-3xl font-bold',
-                          index === 0 ? 'text-amber-500' : 'text-gray-700'
-                        )}>
-                          {playerScore.cumulativeScore}
-                        </div>
-                        <div className="text-xs text-gray-500">Total Skor</div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-3 justify-center flex-wrap">
-        <Button
-          variant="outline"
-          onClick={restartGame}
-          className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Game Baru
-        </Button>
-        
-        {/* TOMBOL MAIN LAGI */}
-        <Button
-          onClick={handlePlayAgain}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Main Lagi
-        </Button>
-        
-        <Button
-          variant="outline"
-          onClick={goHome}
-          className="border-gray-500 text-gray-600 hover:bg-gray-50"
-        >
-          <Home className="mr-2 h-4 w-4" />
-          Ke Beranda
-        </Button>
-      </div>
-    </motion.div>
-  );
-})()}
-            </AnimatePresence>
-
-            {/* Chat */}
-            
-          </div>
-          <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <h4 className="font-semibold mb-3 flex items-center">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Catatan
-                </h4>
-                
-                <ScrollArea className="h-80 mb-4 border rounded p-3" ref={chatScrollRef}>
-                  <div className="space-y-2">
-                    {gameState.chatMessages.map((msg) => (
-                      <div key={msg.id} className="text-sm">
-                        <span className="font-medium text-emerald-600">
-                          {msg.playerName}:
-                        </span>
-                        <span className="ml-2 text-gray-700">{msg.message}</span>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {new Date(msg.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    ))}
-                    {gameState.chatMessages.length === 0 && (
-                      <div className="text-center text-gray-400 text-sm py-4">
-                        Belum ada pesan. Mulai diskusi!
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-                
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="Tulis pesan..."
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendChat()}
-                    className="flex-1"
-                  />
-                  <Button 
-                    onClick={handleSendChat}
-                    disabled={!chatMessage.trim()}
-                    className="bg-emerald-500 hover:bg-emerald-600"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
         </div>
+      </div>
 
-        {/* Leave Game Confirmation Modal */}
-        {showLeaveConfirmation && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center animate-in fade-in duration-300">
-              <div className="mb-6">
-                <div className="bg-red-100 p-4 rounded-full w-fit mx-auto mb-4">
-                  <LogOut className="h-12 w-12 text-red-500" />
-                </div>
+      {/* Leave Game Confirmation Modal */}
+      {showLeaveConfirmation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center animate-in fade-in duration-300">
+            <div className="mb-6">
+              <div className="bg-red-100 p-4 rounded-full w-fit mx-auto mb-4">
+                <LogOut className="h-12 w-12 text-red-500" />
+              </div>
 
-                <h3 className="text-2xl font-bold mb-2 text-red-600">Keluar dari Permainan?</h3>
+              <h3 className="text-2xl font-bold mb-2 text-red-600">Keluar dari Permainan?</h3>
 
-                <p className="text-gray-500 mb-4">
-                  Apakah kamu yakin ingin keluar? Kamu akan kehilangan progres permainan.
+              <p className="text-gray-500 mb-4">
+                Apakah kamu yakin ingin keluar? Kamu akan kehilangan progres permainan.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowLeaveConfirmation(false)}
+                className="flex-1"
+              >
+                Batal
+              </Button>
+
+              <Button
+                onClick={goHome}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Keluar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Elimination Confirmation Modal */}
+      {showEliminationConfirm && pendingElimination && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center animate-in fade-in duration-300">
+            <div className="mb-6">
+              <div className="bg-red-100 p-4 rounded-full w-fit mx-auto mb-4">
+                <AlertTriangle className="h-12 w-12 text-red-500" />
+              </div>
+
+              <h3 className="text-2xl font-bold mb-2 text-red-600">Konfirmasi Eliminasi</h3>
+
+              <p className="text-gray-700 mb-2">
+                Pemain <span className="font-bold text-red-600">{pendingElimination.eliminated.name}</span> akan tereliminasi!
+              </p>
+              
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <p className="text-sm text-gray-600">
+                  Total suara: <span className="font-bold">{pendingElimination.eliminated.vote_count}</span>
                 </p>
               </div>
 
-              <div className="flex space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowLeaveConfirmation(false)}
-                  className="flex-1"
-                >
-                  Batal
-                </Button>
-
-                <Button
-                  onClick={goHome}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Keluar
-                </Button>
-              </div>
+              <p className="text-gray-500 mb-2">
+                Apakah Anda yakin ingin mengeliminasi pemain ini?
+              </p>
             </div>
+
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleRevote}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Vote Ulang
+              </Button>
+
+              <Button
+                onClick={handleConfirmElimination}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+              >
+                <Skull className="h-4 w-4 mr-2" />
+                Eliminasi
+              </Button>
+            </div>
+            
+            <button
+              onClick={() => {
+                setShowEliminationConfirm(false);
+                setPendingElimination(null);
+              }}
+              className="mt-4 text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Batal
+            </button>
           </div>
-        )}
-        {/* Elimination Confirmation Modal */}
-{showEliminationConfirm && pendingElimination && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 text-center animate-in fade-in duration-300">
-      <div className="mb-6">
-        <div className="bg-red-100 p-4 rounded-full w-fit mx-auto mb-4">
-          <AlertTriangle className="h-12 w-12 text-red-500" />
         </div>
-
-        <h3 className="text-2xl font-bold mb-2 text-red-600">Konfirmasi Eliminasi</h3>
-
-        <p className="text-gray-700 mb-2">
-          Pemain <span className="font-bold text-red-600">{pendingElimination.eliminated.name}</span> akan tereliminasi!
-        </p>
-        
-        <div className="bg-gray-50 rounded-lg p-3 mb-4">
-          <p className="text-sm text-gray-600">
-            Total suara: <span className="font-bold">{pendingElimination.eliminated.vote_count}</span>
-          </p>
-        </div>
-
-        <p className="text-gray-500 mb-2">
-          Apakah Anda yakin ingin mengeliminasi pemain ini?
-        </p>
-      </div>
-
-      <div className="flex space-x-3">
-        <Button
-          onClick={handleRevote}
-          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
-        >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Vote Ulang
-        </Button>
-
-        <Button
-          onClick={handleConfirmElimination}
-          className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-        >
-          <Skull className="h-4 w-4 mr-2" />
-          Eliminasi
-        </Button>
-      </div>
-      
-      <button
-        onClick={() => {
-          setShowEliminationConfirm(false);
-          setPendingElimination(null);
-        }}
-        className="mt-4 text-sm text-gray-500 hover:text-gray-700 underline"
-      >
-        Batal
-      </button>
-    </div>
-  </div>
-)}
-      </div>
+      )}
     </div>
   );
 }
