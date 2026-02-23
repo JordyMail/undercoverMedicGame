@@ -1144,7 +1144,7 @@ const handleRevote = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-1 py-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -1185,7 +1185,7 @@ const handleRevote = () => {
           </div>
         </motion.div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
+        <div className="grid lg:grid-cols-5 gap-6">
           {/* Sidebar - Players List */}
           <div className="lg:col-span-1 space-y-4">
             {/* Players Card */}
@@ -1843,14 +1843,16 @@ const playersWithCumulativeScore = scoredPlayers.map(playerScore => {
             </AnimatePresence>
 
             {/* Chat */}
-            <Card className="border-0 shadow-lg">
+            
+          </div>
+          <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Catatan
                 </h4>
                 
-                <ScrollArea className="h-40 mb-4 border rounded p-3" ref={chatScrollRef}>
+                <ScrollArea className="h-80 mb-4 border rounded p-3" ref={chatScrollRef}>
                   <div className="space-y-2">
                     {gameState.chatMessages.map((msg) => (
                       <div key={msg.id} className="text-sm">
@@ -1889,7 +1891,6 @@ const playersWithCumulativeScore = scoredPlayers.map(playerScore => {
                 </div>
               </CardContent>
             </Card>
-          </div>
         </div>
 
         {/* Leave Game Confirmation Modal */}
