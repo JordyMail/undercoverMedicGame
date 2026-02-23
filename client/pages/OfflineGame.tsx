@@ -5,7 +5,6 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
-import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
   Users,
@@ -17,13 +16,10 @@ import {
   Home,
   ChevronRight,
   AlertTriangle,
-  Play,
-  Clock,
   Skull,
   Stethoscope,
   UserCheck,
   Heart,
-  X,
   LogOut,
   Sparkles,
   Check,
@@ -31,7 +27,7 @@ import {
   Settings
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { MEDICAL_THEMES, generateDiseaseCards, DiseaseCard } from '../../shared/medicalData';
+import { MEDICAL_THEMES, generateDiseaseCards } from '../../shared/medicalData';
 
 // Types
 type PlayerRole = 'civilian' | 'undercover' | 'mrwhite' | null;
@@ -53,6 +49,7 @@ interface Player {
     treatment: string;
     innovation: string;
   };
+  pairId?: string; // Ini untuk menyimpan ID pasangan
 }
 
 interface VoteRecord {
@@ -91,7 +88,10 @@ interface GameState {
     message: string;
     timestamp: Date;
   }[];
-  roleDistribution?: RoleDistribution; // Tambahkan role distribution
+  roleDistribution?: RoleDistribution;
+  // Untuk melacak urutan pemain yang sudah melihat kartu
+  viewingOrder: string[]; // Array of player IDs in viewing order
+  mrWhiteIndex: number | null; // Index Mr. White dalam urutan viewing
 }
 
 // Mock avatars
@@ -135,10 +135,66 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
+// Fungsi untuk membuat urutan viewing yang acak dengan Mr. White tidak boleh pertama
+// Fungsi untuk membuat urutan viewing yang acak dengan Mr. White tidak boleh pertama
+const createViewingOrder = (players: Player[]): { viewingOrder: string[], mrWhiteIndex: number | null } => {
+  // Buat array of player IDs
+  const playerIds = players.map(p => p.id);
+  
+  // Cari index Mr. White
+  const mrWhiteId = players.find(p => p.role === 'mrwhite')?.id;
+  
+  if (!mrWhiteId) {
+    // Jika tidak ada Mr. White, acak semua pemain
+    return { 
+      viewingOrder: shuffleArray(playerIds), 
+      mrWhiteIndex: null 
+    };
+  }
+  
+  // Pisahkan Mr. White dari pemain lain
+  const otherIds = playerIds.filter(id => id !== mrWhiteId);
+  
+  // Acak urutan pemain lain
+  const shuffledOthers = shuffleArray(otherIds);
+  
+  // Tentukan posisi Mr. White (1 sampai panjang array)
+  // Math.random() * shuffledOthers.length memberikan angka 0 sampai length-1
+  // Kita tambah 1 karena tidak boleh di posisi 0 (pertama)
+  const mrWhitePosition = Math.floor(Math.random() * shuffledOthers.length) + 1;
+  
+  // Buat urutan viewing
+  const viewingOrder: string[] = [];
+  
+  for (let i = 0; i <= shuffledOthers.length; i++) {
+    if (i === mrWhitePosition) {
+      // Masukkan Mr. White di posisi ini
+      viewingOrder.push(mrWhiteId);
+    } else if (i < mrWhitePosition) {
+      // Masukkan pemain sebelum Mr. White
+      viewingOrder.push(shuffledOthers[i]);
+    } else {
+      // Masukkan pemain setelah Mr. White (i-1 karena kita sudah memasukkan Mr. White)
+      viewingOrder.push(shuffledOthers[i - 1]);
+    }
+  }
+  
+  // Dapatkan index Mr. White dalam array
+  const mrWhiteIndex = viewingOrder.indexOf(mrWhiteId);
+  
+  console.log('Viewing order:', viewingOrder.map(id => {
+    const player = players.find(p => p.id === id);
+    return `${player?.name} (${player?.role})`;
+  }));
+  console.log('Mr. White at position:', mrWhiteIndex + 1);
+  
+  return { viewingOrder, mrWhiteIndex };
+};
+
 const assignRoles = (
   players: any[], 
   themeId: string | null,
-  customRoleDistribution?: RoleDistribution // Tambahkan parameter custom role distribution
+  customRoleDistribution?: RoleDistribution
 ): { players: Player[], themeId: string, themeName: string } => {
   const totalPlayers = players.length;
   
@@ -186,16 +242,14 @@ const assignRoles = (
     throw new Error('Theme not found');
   }
 
-  // Generate disease cards
-  const diseaseCards = generateDiseaseCards(selectedThemeId, totalPlayers);
+  // PILIH 1 PASANGAN PENYAKIT SECARA ACAK DARI THEME
+  const diseasePairs = [...selectedTheme.diseases];
+  const shuffledPairs = shuffleArray(diseasePairs);
+  const selectedPair = shuffledPairs[0]; // Ambil pasangan pertama setelah diacak
   
-  // Pisahkan kartu berdasarkan tipe
-  const mainCards = diseaseCards.filter(card => card.type === 'main');
-  const diffCards = diseaseCards.filter(card => card.type === 'differential');
-
-  // Acak kartu
-  const shuffledMainCards = shuffleArray(mainCards);
-  const shuffledDiffCards = shuffleArray(diffCards);
+  console.log('Selected pair:', selectedPair);
+  console.log('Main diagnose (for civilians):', selectedPair.mainDiagnose);
+  console.log('Differential diagnose (for undercovers):', selectedPair.differentialDiagnose);
 
   // Siapkan peran sesuai distribusi yang ditentukan
   const roles: PlayerRole[] = [
@@ -205,22 +259,20 @@ const assignRoles = (
   ];
 
   const shuffledRoles = shuffleArray(roles);
+  console.log('Roles distribution:', shuffledRoles.map(r => r));
 
-  // Assign roles dan kata
-  let mainIndex = 0;
-  let diffIndex = 0;
-
+  // Assign roles dan kata - SEMUA MENGGUNAKAN 1 PASANGAN YANG SAMA
   const assignedPlayers = players.map((player, index) => {
     const role = shuffledRoles[index] || 'civilian';
     let word = '';
     let hint = '';
 
     if (role === 'civilian') {
-      word = shuffledMainCards[mainIndex]?.name || 'Unknown';
-      mainIndex = (mainIndex + 1) % shuffledMainCards.length;
+      // Semua civilian mendapat mainDiagnose yang SAMA
+      word = selectedPair.mainDiagnose;
     } else if (role === 'undercover') {
-      word = shuffledDiffCards[diffIndex]?.name || 'Unknown';
-      diffIndex = (diffIndex + 1) % shuffledDiffCards.length;
+      // Semua undercover mendapat differentialDiagnose yang SAMA
+      word = selectedPair.differentialDiagnose;
     } else if (role === 'mrwhite') {
       word = '';
       hint = 'Kamu tidak tahu kata rahasia! Dengarkan deskripsi pemain lain untuk menebak.';
@@ -234,13 +286,20 @@ const assignRoles = (
       themeId: selectedThemeId,
       is_alive: true,
       has_seen_word: false,
-      vote_count: 0
+      vote_count: 0,
+      pairId: selectedPair.id // Simpan ID pasangan untuk referensi
     };
   });
 
-  // Tentukan kata untuk Civilian dan Undercover (untuk referensi)
-  const civilianWord = shuffledMainCards[0]?.name || 'Unknown';
-  const undercoverWord = shuffledDiffCards[0]?.name || 'Unknown';
+  // Tentukan kata untuk Civilian dan Undercover
+  const civilianWord = selectedPair.mainDiagnose;
+  const undercoverWord = selectedPair.differentialDiagnose;
+
+  // Log hasil assign untuk debugging
+  console.log('Final player assignments:');
+  assignedPlayers.forEach((p, i) => {
+    console.log(`Player ${i+1}: ${p.name}, Role: ${p.role}, Word: ${p.word}`);
+  });
 
   return {
     players: assignedPlayers,
@@ -354,7 +413,9 @@ export default function OfflineGame() {
     winner: null,
     winReason: '',
     votingHistory: [],
-    chatMessages: []
+    chatMessages: [],
+    viewingOrder: [],
+    mrWhiteIndex: null
   });
 
   const [chatMessage, setChatMessage] = useState('');
@@ -378,26 +439,32 @@ export default function OfflineGame() {
       const result = assignRoles(
         gameData.players, 
         themeId,
-        gameData.roleDistribution // Pass custom role distribution dari setup
+        gameData.roleDistribution
       );
       
-      const shuffledPlayers = shuffleArray(result.players);
+      // Buat urutan viewing yang acak dengan Mr. White tidak boleh pertama
+      const { viewingOrder, mrWhiteIndex } = createViewingOrder(result.players);
+      
+      // Urutkan players berdasarkan viewingOrder untuk memudahkan akses
+      const orderedPlayers = viewingOrder.map(id => 
+        result.players.find(p => p.id === id)!
+      );
       
       // Dapatkan kata pertama untuk referensi
-      const civilianPlayer = shuffledPlayers.find(p => p.role === 'civilian');
-      const undercoverPlayer = shuffledPlayers.find(p => p.role === 'undercover');
+      const civilianPlayer = orderedPlayers.find(p => p.role === 'civilian');
+      const undercoverPlayer = orderedPlayers.find(p => p.role === 'undercover');
 
       // Catat distribusi role di chat
       const roleCounts = {
-        civilian: shuffledPlayers.filter(p => p.role === 'civilian').length,
-        undercover: shuffledPlayers.filter(p => p.role === 'undercover').length,
-        mrwhite: shuffledPlayers.filter(p => p.role === 'mrwhite').length
+        civilian: orderedPlayers.filter(p => p.role === 'civilian').length,
+        undercover: orderedPlayers.filter(p => p.role === 'undercover').length,
+        mrwhite: orderedPlayers.filter(p => p.role === 'mrwhite').length
       };
 
       setTimeout(() => {
         setGameState({
           phase: 'passDevice',
-          players: shuffledPlayers,
+          players: orderedPlayers,
           currentPlayerIndex: 0,
           round: 1,
           civilianWord: civilianPlayer?.word || '',
@@ -408,30 +475,10 @@ export default function OfflineGame() {
           winner: null,
           winReason: '',
           votingHistory: [],
-          chatMessages: [
-            {
-              id: '1',
-              playerId: 'system',
-              playerName: 'System',
-              message: `Tema permainan: ${result.themeName}`,
-              timestamp: new Date()
-            },
-            {
-              id: '2',
-              playerId: 'system',
-              playerName: 'System',
-              message: `Distribusi peran: 🏥 ${roleCounts.civilian} Civilian, 🕵️ ${roleCounts.undercover} Undercover, 👻 ${roleCounts.mrwhite} Mr. White`,
-              timestamp: new Date()
-            },
-            {
-              id: '3',
-              playerId: 'system',
-              playerName: 'System',
-              message: gameData.roleDistribution ? '⚙️ Menggunakan custom role distribution' : '🎲 Menggunakan distribusi otomatis',
-              timestamp: new Date()
-            }
-          ],
-          roleDistribution: gameData.roleDistribution // Simpan role distribution di state
+          chatMessages: [],
+          roleDistribution: gameData.roleDistribution,
+          viewingOrder,
+          mrWhiteIndex
         });
       }, 1500);
     } catch (error) {
@@ -652,6 +699,9 @@ export default function OfflineGame() {
   const alivePlayers = gameState.players.filter(p => p.is_alive);
   const eliminatedPlayers = gameState.players.filter(p => !p.is_alive);
 
+  // Cek apakah current player adalah Mr. White
+  const isCurrentPlayerMrWhite = currentPlayer?.role === 'mrwhite';
+
   const getRoleIcon = (role: PlayerRole) => {
     switch (role) {
       case 'civilian':
@@ -755,12 +805,14 @@ export default function OfflineGame() {
                 </h4>
                 
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {gameState.players.map((player) => (
+                  {gameState.players.map((player, index) => (
                     <div
                       key={player.id}
                       className={cn(
                         "flex items-center justify-between p-2 rounded-lg transition-colors",
-                        player.is_alive ? "bg-white" : "bg-gray-50 opacity-60"
+                        player.is_alive ? "bg-white" : "bg-gray-50 opacity-60",
+                        // Tandai urutan viewing
+                        gameState.phase === 'passDevice' && gameState.currentPlayerIndex === index && "ring-2 ring-emerald-500"
                       )}
                     >
                       <div className="flex items-center space-x-2">
@@ -773,6 +825,12 @@ export default function OfflineGame() {
                             <Badge variant="outline" className="ml-2 text-xs bg-green-100 text-green-700 border-green-200">
                               ✓
                             </Badge>
+                          )}
+                          {/* Tampilkan indikator urutan */}
+                          {gameState.phase === 'passDevice' && (
+                            <span className="ml-2 text-xs text-gray-400">
+                              #{gameState.viewingOrder.indexOf(player.id) + 1}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -918,32 +976,34 @@ export default function OfflineGame() {
                   exit={{ opacity: 0, scale: 0.95 }}
                 >
                   <Card className="border-0 shadow-xl overflow-hidden">
-                    <div className={cn(
-                      "h-2",
-                      currentPlayer.role === 'civilian' ? "bg-blue-500" :
-                      currentPlayer.role === 'undercover' ? "bg-red-500" : "bg-purple-500"
-                    )} />
+                    {/* Hanya Mr. White yang melihat warna role di header */}
+                    {isCurrentPlayerMrWhite && (
+                      <div className={cn(
+                        "h-2",
+                        currentPlayer.role === 'mrwhite' && "bg-purple-500"
+                      )} />
+                    )}
                     <CardContent className="p-8 text-center">
                       <div className="mb-6">
-                        <div className={cn(
-                          "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4",
-                          currentPlayer.role === 'civilian' ? "bg-blue-100" :
-                          currentPlayer.role === 'undercover' ? "bg-red-100" : "bg-purple-100"
-                        )}>
-                          <span className="text-4xl">
-                            {currentPlayer.role === 'civilian' ? '🏥' :
-                             currentPlayer.role === 'undercover' ? '🕵️' : '👻'}
-                          </span>
-                        </div>
-                        <Badge className={cn(
-                          "text-white border-0",
-                          currentPlayer.role === 'civilian' ? "bg-blue-500" :
-                          currentPlayer.role === 'undercover' ? "bg-red-500" : "bg-purple-500"
-                        )}>
-                          {currentPlayer.role === 'civilian' && 'Civilian'}
-                          {currentPlayer.role === 'undercover' && 'Undercover'}
-                          {currentPlayer.role === 'mrwhite' && 'Mr. White'}
-                        </Badge>
+                        {/* Hanya Mr. White yang melihat icon role */}
+                        {isCurrentPlayerMrWhite ? (
+                          <>
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-purple-100">
+                              <span className="text-4xl">👻</span>
+                            </div>
+                            <Badge className="bg-purple-500 text-white border-0">
+                              Mr. White
+                            </Badge>
+                          </>
+                        ) : (
+                          <>
+                            {/* Untuk Civilian dan Undercover - tidak menampilkan role */}
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-100">
+                              <span className="text-4xl">🎭</span>
+                            </div>
+                            {/* Tidak menampilkan badge role */}
+                          </>
+                        )}
                       </div>
 
                       <h3 className="text-2xl font-bold text-gray-800 mb-2">
@@ -969,17 +1029,10 @@ export default function OfflineGame() {
                           <p className="text-gray-600">
                             Kata rahasiamu adalah:
                           </p>
-                          <div className={cn(
-                            "text-4xl font-bold py-4 px-8 rounded-xl inline-block",
-                            currentPlayer.role === 'civilian' ? "bg-blue-50 text-blue-700" : "bg-red-50 text-red-700"
-                          )}>
+                          <div className="text-4xl font-bold py-4 px-8 rounded-xl inline-block bg-emerald-50 text-emerald-700">
                             {currentPlayer.word}
                           </div>
-                          {currentPlayer.hint && (
-                            <p className="text-sm text-gray-500 italic">
-                              {currentPlayer.hint}
-                            </p>
-                          )}
+                          {/* Tidak menampilkan hint untuk civilian/undercover */}
                         </div>
                       )}
 
