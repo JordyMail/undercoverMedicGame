@@ -128,7 +128,7 @@ const validateCustomRoles = (
   }
 
   // Cek civilian harus terbanyak
-  if (civilian <= undercover + mrwhite) {
+  if (civilian < undercover + mrwhite) {
     return { 
       valid: false, 
       message: 'Jumlah Civilian harus lebih banyak dari gabungan Undercover dan Mr. White' 

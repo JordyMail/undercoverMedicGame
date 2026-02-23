@@ -111,7 +111,7 @@ export default function HomePage() {
                     <Users className="w-10 h-10 text-emerald-600" />
                   </motion.div>
                   
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Mode Offline</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Single Device</h2>
                   <p className="text-gray-500 mb-4">
                     Mainkan bersama teman-temanmu dalam satu perangkat
                   </p>
@@ -163,7 +163,7 @@ export default function HomePage() {
                     <Activity className="w-10 h-10 text-blue-600" />
                   </motion.div>
                   
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Mode Online</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Multiplayer Game</h2>
                   <p className="text-gray-500 mb-4">
                     Bermain dengan pemain dari seluruh dunia
                   </p>
