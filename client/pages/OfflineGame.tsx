@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { playerStats } from '../lib/playerStats';
 import {
   Users,
   Eye,
@@ -801,6 +802,37 @@ export default function OfflineGame() {
     }
   }, [gameState.chatMessages]);
 
+
+  // Di bagian useEffect atau di tempat yang sesuai, setelah game selesai
+useEffect(() => {
+  if (gameState.phase === 'finished' && gameState.winner) {
+    // Update stats when game finishes
+    const gameResult = {
+      winner: gameState.winner,
+      winReason: gameState.winReason,
+      finalRound: gameState.round
+    };
+    
+    const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+    
+    scoredPlayers.forEach(playerScore => {
+      const player = gameState.players.find(p => p.id === playerScore.playerId);
+      if (player) {
+        const isWinner = gameState.winner === player.role;
+        playerStats.updatePlayerStats(
+          player.id,
+          player.name,
+          player.avatar_id,
+          playerScore.totalScore,
+          player.role,
+          isWinner ? 'win' : 'lose',
+          gameState.themeName
+        );
+      }
+    });
+  }
+}, [gameState.phase, gameState.winner]);
+
   // Handle ready to see card
   const handleReadyToSee = () => {
     setGameState({
@@ -832,6 +864,55 @@ export default function OfflineGame() {
       });
     }
   };
+
+  // Fungsi untuk handle tombol "Main Lagi"
+const handlePlayAgain = () => {
+  // 1. Update stats untuk semua pemain sebelum pindah
+  const gameResult = {
+    winner: gameState.winner,
+    winReason: gameState.winReason,
+    finalRound: gameState.round
+  };
+  
+  const scoredPlayers = calculateFinalScoresWithRules(gameState, gameResult);
+  
+  // Update stats untuk setiap pemain
+  scoredPlayers.forEach(playerScore => {
+    const player = gameState.players.find(p => p.id === playerScore.playerId);
+    if (player) {
+      const isWinner = gameState.winner === player.role;
+      playerStats.updatePlayerStats(
+        player.id,
+        player.name,
+        player.avatar_id,
+        playerScore.totalScore,
+        player.role,
+        isWinner ? 'win' : 'lose',
+        gameState.themeName
+      );
+    }
+  });
+
+  // 2. Simpan data pemain yang akan digunakan lagi di setup
+  const playersForNextGame = gameState.players.map(p => ({
+    id: p.id,
+    name: p.name,
+    avatar_id: p.avatar_id,
+    // Tambahkan skor total dari stats
+    totalScore: playerStats.getPlayerStats(p.id)?.totalScore || 0
+  }));
+
+  // 3. Simpan ke sessionStorage untuk digunakan di setup
+  sessionStorage.setItem('playAgainPlayers', JSON.stringify(playersForNextGame));
+  
+  // 4. Navigasi ke halaman setup
+  navigate('/offline/setup', { 
+    state: { 
+      playAgain: true,
+      existingPlayers: playersForNextGame 
+    } 
+  });
+};
 
   // Start voting phase
   const startVoting = () => {
@@ -1722,6 +1803,14 @@ const handleRevote = () => {
                       >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Game Baru
+                      </Button>
+                      {/* TOMBOL MAIN LAGI - BARU */}
+                      <Button
+                        onClick={handlePlayAgain}
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Main Lagi
                       </Button>
                       <Button
                         variant="outline"

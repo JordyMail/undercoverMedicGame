@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // ✅ FIX: Tambah useLocation
+import { playerStats } from '../lib/playerStats'; // ✅ Import playerStats
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -165,6 +166,7 @@ const validateCustomRoles = (
 
 export default function OfflineSetup() {
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ Tambahkan useLocation
   const [step, setStep] = useState(1);
   const [players, setPlayers] = useState<Player[]>([]);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -181,6 +183,38 @@ export default function OfflineSetup() {
     undercover_percentage: 30,
     mrwhite_percentage: 10,
   });
+
+  // ✅ Effect untuk load data dari "Main Lagi"
+  useEffect(() => {
+    // Cek apakah ini mode "Main Lagi"
+    const playAgainPlayers = sessionStorage.getItem('playAgainPlayers');
+    
+    if (playAgainPlayers) {
+      try {
+        const existingPlayers = JSON.parse(playAgainPlayers);
+        // Set players dari game sebelumnya
+        setPlayers(existingPlayers.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          avatar_id: p.avatar_id
+        })));
+        
+        // Bersihkan sessionStorage
+        sessionStorage.removeItem('playAgainPlayers');
+        
+        console.log('Memuat pemain dari game sebelumnya');
+      } catch (error) {
+        console.error('Failed to load play again players:', error);
+      }
+    } else if (location.state?.playAgain && location.state?.existingPlayers) {
+      // Alternative: menggunakan location state
+      setPlayers(location.state.existingPlayers.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        avatar_id: p.avatar_id
+      })));
+    }
+  }, [location.state]);
 
   // Check if custom roles are available (more than 4 players)
   const canCustomizeRoles = players.length > 4;
@@ -209,8 +243,19 @@ export default function OfflineSetup() {
     }
   }, [players.length]);
 
+  // ✅ Modifikasi fungsi addPlayer untuk mencegah duplikasi nama
   const addPlayer = () => {
     if (newPlayerName.trim() && players.length < 15) {
+      // Cek apakah nama sudah ada
+      const nameExists = players.some(p => 
+        p.name.toLowerCase() === newPlayerName.trim().toLowerCase()
+      );
+      
+      if (nameExists) {
+        alert('Nama pemain sudah ada! Gunakan nama yang berbeda.');
+        return;
+      }
+      
       const newPlayer: Player = {
         id: Date.now().toString(),
         name: newPlayerName.trim(),
@@ -218,7 +263,7 @@ export default function OfflineSetup() {
       };
       setPlayers([...players, newPlayer]);
       setNewPlayerName('');
-      setNewPlayerAvatar((prev) => (prev % 10) + 1);
+      setNewPlayerAvatar((prev) => (prev % 27) + 1);
     }
   };
 
@@ -226,10 +271,14 @@ export default function OfflineSetup() {
     setPlayers(players.filter(p => p.id !== id));
   };
 
+  // ✅ Modifikasi updatePlayerAvatar untuk juga update di stats
   const updatePlayerAvatar = (playerId: string, avatarId: number) => {
     setPlayers(players.map(p => 
       p.id === playerId ? { ...p, avatar_id: avatarId } : p
     ));
+    
+    // Update juga di stats
+    playerStats.updatePlayerAvatar(playerId, avatarId);
   };
 
   const toggleCustomRoles = () => {
@@ -493,6 +542,8 @@ export default function OfflineSetup() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[400px]  pr-1">
                         {players.map((player, index) => {
                           const avatar = AVATARS.find(a => a.id === player.avatar_id) || AVATARS[0];
+                          const playerStat = playerStats.getPlayerStats(player.id); // ✅ Ambil stat pemain
+                          
                           return (
                             <motion.div
                               key={player.id}
@@ -505,6 +556,13 @@ export default function OfflineSetup() {
                                 <div className="text-3xl mb-1">{avatar.icon}</div>
                                 <p className="font-medium text-gray-800 text-sm truncate">{player.name}</p>
                                 <p className="text-xs text-gray-400">#{index + 1}</p>
+                                
+                                {/* ✅ Tampilkan skor total jika ada */}
+                                {playerStat && playerStat.totalScore > 0 && (
+                                  <Badge className="mt-1 bg-amber-100 text-amber-700 border-0 text-xs">
+                                    🏆 {playerStat.totalScore} pts
+                                  </Badge>
+                                )}
                                 
                                 {/* Avatar selector dropdown */}
                                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
