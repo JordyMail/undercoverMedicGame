@@ -52,7 +52,7 @@ export default function PlayPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-medical-blue/10 via-background to-medical-green/10">
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
           <Link to="/">
@@ -62,40 +62,45 @@ export default function PlayPage() {
             </Button>
           </Link>
           
-          <div className="flex items-center">
-            <div className="bg-gradient-to-r from-medical-blue to-medical-green p-2 rounded-lg mr-3">
-              <Stethoscope className="h-6 w-6 text-white" />
+          <div className="flex justify-between w-full">
+            <div className="flex items-center mr-6">
+                <div className="bg-gradient-to-r from-medical-blue to-medical-green p-2 rounded-lg mr-3">
+                  <Stethoscope className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold">Join the Battle</h1>
+                  <p className="text-muted-foreground">Create or join a medical diagnosis challenge</p>
+                </div>
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Join the Battle</h1>
-              <p className="text-muted-foreground">Create or join a medical diagnosis challenge</p>
+                {error && (
+                  <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-6">
+                    {error}
+                  </div>
+                )}
+
+                {!isConnected && (
+                  <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-3"></div>
+                      Connecting to game server...
+                    </div>
+                  </div>
+                )}
+
+                {isConnected && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                      Connected! Ready to play.
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         </div>
 
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        {!isConnected && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-3"></div>
-              Connecting to game server...
-            </div>
-          </div>
-        )}
-
-        {isConnected && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-              Connected! Ready to play.
-            </div>
-          </div>
-        )}
+        
 
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-8">

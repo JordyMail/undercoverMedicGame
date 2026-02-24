@@ -404,7 +404,7 @@ export default function OfflineSetup() {
             Kembali
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Mode Offline</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Single Device</h1>
             <p className="text-gray-500 text-sm">Siapkan permainan untuk bermain bersama</p>
           </div>
         </motion.div>
