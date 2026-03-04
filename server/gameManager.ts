@@ -187,17 +187,26 @@ class GameManager {
       return;
     }
 
+     console.log(`🎮 Starting game in room ${roomCode} with ${room.players.length} players`);
+
     this.assignRoles(room);
     
     room.phase = GamePhase.ROLE_ASSIGNMENT;
     room.round = 1;
 
-    this.io.to(roomCode).emit('game-started');
+    this.io.to(roomCode).emit('game-started', this.sanitizeRoomForClient(room));
     this.broadcastRoomUpdate(room);
   }
 
   private assignRoles(room: Room): void {
     const playerCount = room.players.length;
+
+    // Reset roles dan penyakit sebelum assign
+    room.players.forEach(p => {
+      p.role = undefined;
+      p.disease = undefined;
+      p.isEliminated = false;
+    });
     
     const mainCount = Math.floor(playerCount * 0.6) || 1;
     const diffCount = Math.floor(playerCount * 0.3) || 1;
@@ -211,22 +220,28 @@ class GameManager {
     const selectedMainDisease = mainDiseases[Math.floor(Math.random() * mainDiseases.length)];
     const selectedDiffDisease = diffDiseases[Math.floor(Math.random() * diffDiseases.length)];
 
+    console.log(`Selected main disease: ${selectedMainDisease.name}`);
+    console.log(`Selected diff disease: ${selectedDiffDisease.name}`);
+
     let index = 0;
     
     for (let i = 0; i < mainCount; i++) {
       shuffledPlayers[index].role = PlayerRole.MAIN_DIAGNOSE;
       shuffledPlayers[index].disease = selectedMainDisease.name;
+      console.log(`Player ${shuffledPlayers[index].name} assigned as MAIN with disease: ${selectedMainDisease.name}`);
       index++;
     }
     
     for (let i = 0; i < diffCount; i++) {
       shuffledPlayers[index].role = PlayerRole.DIFFERENTIAL_DIAGNOSE;
       shuffledPlayers[index].disease = selectedDiffDisease.name;
+      console.log(`Player ${shuffledPlayers[index].name} assigned as DIFF with disease: ${selectedDiffDisease.name}`);
       index++;
     }
     
     for (let i = 0; i < greyCount; i++) {
       shuffledPlayers[index].role = PlayerRole.DOCTOR_GREY;
+      console.log(`Player ${shuffledPlayers[index].name} assigned as GREY (no disease)`);
       index++;
     }
 
@@ -247,6 +262,7 @@ class GameManager {
     
     const allRevealed = room.players.every(p => p.role);
     if (allRevealed) {
+      console.log(`✅ All players have revealed roles in room ${roomCode}`);
       room.phase = GamePhase.DISCUSSION;
       this.io.to(roomCode).emit('phase-changed', GamePhase.DISCUSSION);
       this.broadcastRoomUpdate(room);

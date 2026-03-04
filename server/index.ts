@@ -23,11 +23,11 @@ function createServer() {
   app.use(express.json());
 
   // API Routes
-  app.get('/api/ping', (req, res) => {
+  app.get('/api/ping', (_, res) => {
     res.json({ message: 'Server is running!' });
   });
 
-  app.get('/api/demo', (req, res) => {
+  app.get('/api/demo', (_, res) => {
     res.json({
       message: 'Uncoverles Game Server',
       version: '1.0.0',
@@ -104,36 +104,32 @@ function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
         connectionAttempts.delete(ip);
       }
     }
-
-    if (connectionAttempts.size > 0) {
-      console.log(`Cleaned up old connection attempts. Active IPs: ${connectionAttempts.size}`);
-    }
-  }, 300000); // Run every 5 minutes
+  }, 300000);
 
   // Socket.IO Connection Handling
   io.on('connection', (socket) => {
-  const clientIP = socket.handshake.address;
-  const now = Date.now();
+    const clientIP = socket.handshake.address;
+    const now = Date.now();
 
-  // Rate limiting: max 2 connections per IP per 30 seconds
-  const attempts = connectionAttempts.get(clientIP) || { count: 0, lastAttempt: 0 };
+    // 🔴 PERBAIKAN: Naikkan batasan jadi 10 koneksi per 30 detik
+    const attempts = connectionAttempts.get(clientIP) || { count: 0, lastAttempt: 0 };
 
-  if (now - attempts.lastAttempt < 30000) { // 30 seconds
-    attempts.count++;
-    if (attempts.count > 2) {
-      console.log(`Connection spam detected from ${clientIP}, disconnecting ${socket.id}`);
-      socket.emit('error', 'Too many connection attempts. Please wait a moment.');
-      socket.disconnect(true);
-      return;
+    if (now - attempts.lastAttempt < 30000) { // 30 seconds
+      attempts.count++;
+      if (attempts.count > 10) { // Dari 5 menjadi 10
+        console.log(`Connection spam detected from ${clientIP}, disconnecting ${socket.id}`);
+        socket.emit('error', 'Too many connection attempts. Please wait a moment.');
+        socket.disconnect(true);
+        return;
+      }
+    } else {
+      attempts.count = 1;
     }
-  } else {
-    attempts.count = 1;
-  }
 
-  attempts.lastAttempt = now;
-  connectionAttempts.set(clientIP, attempts);
+    attempts.lastAttempt = now;
+    connectionAttempts.set(clientIP, attempts);
 
-  console.log(`Player connected: ${socket.id} from ${clientIP}`);
+    console.log(`Player connected: ${socket.id} from ${clientIP}`);
 
   // Game event handlers with error handling
   socket.on('create-room', (playerName: string) => {
@@ -209,7 +205,7 @@ if (process.env.NODE_ENV === 'production') {
   const staticPath = path.join(__dirname, '..', 'spa');
   app.use(express.static(staticPath));
   
-  app.get('*', (req, res) => {
+  app.get('*', (_, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });
 }

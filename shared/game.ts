@@ -45,6 +45,8 @@ export interface Room {
   finalVotes: { [voterId: string]: string };
   eliminatedThisRound?: string;
   chatMessages: ChatMessage[];
+  winner?: string;
+  selectedTheme?: string;
 }
 
 export interface Disease {
