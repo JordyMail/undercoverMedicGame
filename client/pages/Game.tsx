@@ -480,106 +480,106 @@ useEffect(() => {
             className="col-span-3 space-y-4"
           >
            {/* 🔴 PERBAIKAN: Role Assignment Card - Dengan animasi flip yang benar */}
-{!individuallyRevealed && (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 0.3 }}
-  >
-    <Card className="bg-game-card border-0 shadow-lg overflow-hidden">
-      <CardContent className="p-6 text-center">
-        <h3 className="font-bold mb-4">Your Role Card</h3>
-        
-        {/* Container dengan perspective untuk efek 3D */}
-        <div 
-          className="relative w-48 h-64 mx-auto cursor-pointer"
-          style={{ perspective: '1000px' }}
-          onClick={handleRevealRole}
-        >
-          {/* Card wrapper dengan transform-style preserve-3d */}
-          <div 
-            className="relative w-full h-full transition-all duration-700"
-            style={{ 
-              transformStyle: 'preserve-3d',
-              transform: cardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-            }}
-          >
-            {/* Front of card - sisi depan */}
-            <div 
-              className="absolute inset-0 w-full h-full"
-              style={{ 
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden'
-              }}
-            >
-              <div className="w-full h-full bg-gradient-to-br from-medical-blue to-medical-green rounded-2xl shadow-xl flex flex-col items-center justify-center p-4 border-4 border-white/20">
-                <div className="animate-pulse">
-                  <Eye className="h-12 w-12 text-white mb-3" />
-                </div>
-                <div className="text-white text-center">
-                  <div className="text-sm font-semibold mb-2">Click to Reveal</div>
-                  <div className="text-xs opacity-80">Your secret role awaits</div>
-                </div>
-                <div className="absolute bottom-3 left-0 right-0 text-center">
-                  <Sparkles className="h-4 w-4 text-white/50 mx-auto animate-pulse" />
-                </div>
-              </div>
-            </div>
-            
-            {/* Back of card - sisi belakang (diputar 180 derajat) */}
-            <div 
-              className="absolute inset-0 w-full h-full"
-              style={{ 
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                transform: 'rotateY(180deg)'
-              }}
-            >
-              <div className="w-full h-full bg-white rounded-2xl shadow-xl border-2 border-medical-blue/30 flex flex-col items-center justify-center p-4">
-                {myRole ? (
-                  <>
-                    <div className={`${getRoleColor(myRole)} mb-3 scale-150`}>
-                      {getRoleIcon(myRole)}
+            {!individuallyRevealed && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Card className="bg-game-card border-0 shadow-lg overflow-hidden">
+                  <CardContent className="p-6 text-center">
+                    <h3 className="font-bold mb-4">Your Role Card</h3>
+                    
+                    {/* Container dengan perspective untuk efek 3D */}
+                    <div 
+                      className="relative w-48 h-64 mx-auto cursor-pointer"
+                      style={{ perspective: '1000px' }}
+                      onClick={handleRevealRole}
+                    >
+                      {/* Card wrapper dengan transform-style preserve-3d */}
+                      <div 
+                        className="relative w-full h-full transition-all duration-700"
+                        style={{ 
+                          transformStyle: 'preserve-3d',
+                          transform: cardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                        }}
+                      >
+                        {/* Front of card - sisi depan */}
+                        <div 
+                          className="absolute inset-0 w-full h-full"
+                          style={{ 
+                            backfaceVisibility: 'hidden',
+                            WebkitBackfaceVisibility: 'hidden'
+                          }}
+                        >
+                          <div className="w-full h-full bg-gradient-to-br from-medical-blue to-medical-green rounded-2xl shadow-xl flex flex-col items-center justify-center p-4 border-4 border-white/20">
+                            <div className="animate-pulse">
+                              <Eye className="h-12 w-12 text-white mb-3" />
+                            </div>
+                            <div className="text-white text-center">
+                              <div className="text-sm font-semibold mb-2">Click to Reveal</div>
+                              <div className="text-xs opacity-80">Your secret role awaits</div>
+                            </div>
+                            <div className="absolute bottom-3 left-0 right-0 text-center">
+                              <Sparkles className="h-4 w-4 text-white/50 mx-auto animate-pulse" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Back of card - sisi belakang (diputar 180 derajat) */}
+                        <div 
+                          className="absolute inset-0 w-full h-full"
+                          style={{ 
+                            backfaceVisibility: 'hidden',
+                            WebkitBackfaceVisibility: 'hidden',
+                            transform: 'rotateY(180deg)'
+                          }}
+                        >
+                          <div className="w-full h-full bg-white rounded-2xl shadow-xl border-2 border-medical-blue/30 flex flex-col items-center justify-center p-4">
+                            {myRole ? (
+                              <>
+                                <div className={`${getRoleColor(myRole)} mb-3 scale-150`}>
+                                  {getRoleIcon(myRole)}
+                                </div>
+                                
+                                <div className="text-sm font-semibold text-center mt-2">
+                                  {myRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </div>
+                                
+                                {myDisease && (
+                                  <div className="text-xs font-medium text-medical-blue mt-3 text-center border-t pt-3 w-full">
+                                    <span className="font-bold">Disease:</span>
+                                    <br />
+                                    {myDisease}
+                                  </div>
+                                )}
+                                
+                                {!myDisease && myRole === PlayerRole.DOCTOR_GREY && (
+                                  <div className="text-xs font-medium text-medical-purple mt-3 text-center border-t pt-3 w-full">
+                                    <span className="font-bold">Special Role:</span>
+                                    <br />
+                                    Doctor Grey
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-medical-blue mx-auto mb-2"></div>
+                                <p className="text-xs text-muted-foreground">Loading role...</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="text-sm font-semibold text-center mt-2">
-                      {myRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </div>
-                    
-                    {myDisease && (
-                      <div className="text-xs font-medium text-medical-blue mt-3 text-center border-t pt-3 w-full">
-                        <span className="font-bold">Disease:</span>
-                        <br />
-                        {myDisease}
-                      </div>
-                    )}
-                    
-                    {!myDisease && myRole === PlayerRole.DOCTOR_GREY && (
-                      <div className="text-xs font-medium text-medical-purple mt-3 text-center border-t pt-3 w-full">
-                        <span className="font-bold">Special Role:</span>
-                        <br />
-                        Doctor Grey
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-medical-blue mx-auto mb-2"></div>
-                    <p className="text-xs text-muted-foreground">Loading role...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <p className="text-sm text-muted-foreground mt-4">
-          Click the card to reveal your secret role
-        </p>
-      </CardContent>
-    </Card>
-  </motion.div>
-)}
+                    <p className="text-sm text-muted-foreground mt-4">
+                      Click the card to reveal your secret role
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
             {/* 🔴 PERBAIKAN: Tampilkan role yang sudah di-reveal */}
             {individuallyRevealed && hasRevealedRole && myRole && (
@@ -1564,7 +1564,7 @@ useEffect(() => {
       </div>
 
       {/* Add custom CSS for 3D transforms */}
-      <style jsx>{`
+      {/* <style jsx>{`
         .perspective-1000 {
           perspective: 1000px;
         }
@@ -1578,7 +1578,7 @@ useEffect(() => {
         .rotate-y-180 {
           transform: rotateY(180deg);
         }
-      `}</style>
+      `}</style> */}
     </div>
   );
 }
