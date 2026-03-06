@@ -47,6 +47,7 @@ export interface Room {
   chatMessages: ChatMessage[];
   winner?: string;
   selectedTheme?: string;
+  // hi
 }
 
 export interface Disease {
